@@ -49,6 +49,8 @@ button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   flex: 1 1 0; min-width: 52px; padding: 10px 8px; border-radius: 10px; border: 2px solid var(--line);
   background: #15122a; font-weight: 700; font-size: 1.05rem;
 }
+.seg button:disabled { opacity: .35; }
+.note { margin: 6px 0 0; font-size: 12px; opacity: .7; }
 .seg button[aria-pressed="true"] { border-color: var(--amber); background: #3a2a10; color: var(--amber); }
 .tracks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .tracks button { padding: 6px; border-radius: 10px; border: 2px solid var(--line); background: #15122a; display: grid; gap: 4px; text-align: left; }
@@ -116,6 +118,7 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
         <div class="seg" id="ctrl">
           <button data-c="joy">Joystick</button><button data-c="btn">Touches ◀ ▶</button><button data-c="wheel">Volant</button>
         </div>
+        <p class="note" id="ctrlNote"></p>
         <div class="lbl">Tours</div>
         <div class="seg" id="laps">
           <button id="l2" data-l="2">2</button><button id="l3" data-l="3">3</button><button id="l5" data-l="5">5</button>
@@ -138,7 +141,9 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
         <p><b>Touches ◀ ▶</b> ou <b>Volant</b> : à gauche, tu tournes avec les deux touches ou en faisant pivoter le volant. À droite, la grande pédale accélère et la petite freine. Frein et accélérateur ensemble dans un virage : dérapage !</p>
         <p>Le bouton rond de ta zone lance ton objet.</p>
         <p>Roule sur les cubes « ? » pour gagner un objet. Plus tu es loin dans le classement, meilleurs sont les objets. Les pièces augmentent ta vitesse max (10 au maximum) et tu en perds 3 quand tu te fais toucher. Évite les flaques d'huile et les herses posées sur la piste. Les flèches jaunes au sol donnent un turbo.</p>
-        <p>Sur ordinateur : joueur 1 aux flèches (objet avec Entrée), joueur 2 en ZQSD ou WASD (objet avec E).</p>
+        <p><b>Sur ordinateur, seul :</b> ZQSD ou les flèches pour conduire, Espace frein à main (dérapage), Maj nitro, E ou Entrée pour l'objet, C pour changer de caméra, R pour revenir sur la piste, Échap pour la pause.</p>
+        <p><b>À deux sur un ordinateur :</b> J1 joue avec ZQSD (Espace dérapage, Maj gauche nitro, E objet, C caméra) et J2 avec les flèches (Ctrl droit dérapage, Maj droite nitro, Entrée objet, Fin caméra).</p>
+        <p><b>Nitro :</b> la jauge bleue se remplit en roulant et surtout en dérapant. Sur écran tactile, touche le bouton N2O (en solo) ; touche la minicarte pour changer de caméra.</p>
       </details>
       <div class="items" id="itemList"></div>
     </div>
@@ -560,7 +565,7 @@ class Car {
     this.idx = 0; this.lap = 0; this.cp = 1; this.progress = 0; this.finished = false; this.ftime = null;
     this.item = null; this.roll = 0; this.coins = 0;
     this.spin = 0; this.shield = 0; this.star = 0; this.boost = 0; this.shrink = 0; this.slide = 0; this.inv = 0;
-    this.throttle = 0; this.brake = false; this.steer = 0; this.drift = false;
+    this.throttle = 0; this.brake = false; this.steer = 0; this.drift = false; this.nitro = 0.35; this.nitroOn = false;
     this.ai = null; this.skid = null; this.lapStart = 0; this.bestLap = null; this.wrong = 0;
   }
   get scale() { return this.shrink > 0 ? 0.6 : 1; }
@@ -582,6 +587,9 @@ class Car {
     if (this.shield > 0) this.shield -= dt;
     if (this.inv > 0) this.inv -= dt;
     if (this.boost > 0) { this.boost -= dt; vmax *= 1.4; acc *= 2.6; }
+    // nitro : se recharge en roulant et en dérapant, se vide quand on l'utilise
+    if (this.nitroOn && this.nitro > 0 && this.spin <= 0) { vmax *= 1.28; acc *= 2; this.nitro = Math.max(0, this.nitro - dt * 0.32); }
+    else if (game.phase === "race") this.nitro = Math.min(1, this.nitro + dt * (0.025 + (this.drifting ? 0.3 : 0) + (this.boost > 0 ? 0.1 : 0)));
     if (this.slide > 0) { this.slide -= dt; grip *= 0.08; this.a += 4 * dt * Math.sign(vr || 1); }
     if (this.spin > 0) {
       this.spin -= dt; this.a += 11 * dt; vf -= vf * 2.5 * dt; vr -= vr * 2.5 * dt;
@@ -815,10 +823,16 @@ class Game {
       const [wx, wy] = wheels[Math.random() < 0.5 ? 0 : 1];
       this.parts.push({ kind: "smoke", x: wx, y: wy, vx: -car.vx * .15, vy: -car.vy * .15, life: 0.7, max: 0.7, size: 5, grow: 16, color: this.world.th.dust });
     }
-    if (car.boost > 0 || car.star > 0) {
+    if (car.boost > 0 || car.star > 0 || (car.nitroOn && car.nitro > 0)) {
       const ex = car.x - fx * car.m.len * 0.55 * s, ey = car.y - fy * car.m.len * 0.55 * s;
-      for (let k = 0; k < 2; k++) this.parts.push({ kind: "flame", x: ex, y: ey, vx: -fx * 240 + rnd(-40, 40) + car.vx * .5, vy: -fy * 240 + rnd(-40, 40) + car.vy * .5, life: rnd(.15, .3), max: .3, size: k ? 6 : 11, grow: 0, color: car.star > 0 ? `hsl(${Math.random() * 360},100%,60%)` : (k ? "#ffe68c" : "#ff781e") });
+      for (let k = 0; k < 2; k++) this.parts.push({ kind: "flame", x: ex, y: ey, vx: -fx * 240 + rnd(-40, 40) + car.vx * .5, vy: -fy * 240 + rnd(-40, 40) + car.vy * .5, life: rnd(.15, .3), max: .3, size: k ? 6 : 11, grow: 0, color: car.star > 0 ? `hsl(${Math.random() * 360},100%,60%)` : car.nitroOn && car.boost <= 0 ? (k ? "#bfe9ff" : "#2f8cff") : (k ? "#ffe68c" : "#ff781e") });
     }
+  }
+
+  nextCam(pi) { const c = this.cams[pi]; if (c) { c.mode = ((c.mode || 0) + 1) % 3; if (this.humans[pi]) this.humans[pi].banner = { txt: ["CAMÉRA ARRIÈRE", "CAMÉRA PROCHE", "CAMÉRA CAPOT"][c.mode], t: 0.9 }; } }
+  rescue(car) { // remet la voiture au milieu de la piste, dans le bon sens
+    if (car.finished || car.spin > 0) return;
+    const p = this.world.at(car.idx, 0, {}); car.x = p.x; car.y = p.y; car.a = p.a; car.vx = car.vy = 0; car.inv = 1.2;
   }
 
   // ---- mise à jour ----
@@ -1104,7 +1118,7 @@ class Game {
     const label = (t, y) => { ctx.fillStyle = "#fff"; ctx.font = `700 ${12 * s}px 'Chakra Petch', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(t, 0, y); };
     key(P.gas, pd.gas, b => { ridges(b); label("GAZ", b.h / 2 - 11 * s); });
     key(P.brake, pd.brake, b => { ridges(b); label("FREIN", b.h / 2 - 11 * s); });
-    if (cfg.ctrl === "btn") {
+    if (ctrlMode() === "btn") {
       const arrow = d => b => { ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(d * 18 * s, 0); ctx.lineTo(-d * 12 * s, -18 * s); ctx.lineTo(-d * 12 * s, 18 * s); ctx.fill(); };
       key(P.left, pd.L, arrow(-1)); key(P.right, pd.R, arrow(1));
     } else {
@@ -1120,9 +1134,25 @@ class Game {
       ctx.restore();
     }
   }
+  drawSpeedLines(v, car, pi) {
+    const cs = this.r3 && this.r3.cams[pi], push = cs ? cs.push || 0 : 0;
+    const k = Math.max(push, clamp((car.speed - car.m.vmax * 0.8) / (car.m.vmax * 0.4), 0, 1) * 0.6);
+    if (k < 0.05) return;
+    const cx = v.w / 2, cy = v.h * 0.45, R0 = Math.min(v.w, v.h) * 0.42, R1 = Math.hypot(v.w, v.h) * 0.6;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, v.w, v.h); ctx.clip(); ctx.lineCap = "round";
+    for (let j = 0; j < 26; j++) {
+      const a = (j * 2.39996 + Math.floor(this.t * 30) * 0.7) % 6.283, r0 = R0 + ((j * 53 + this.t * 900) % 120), len = 40 + k * 140;
+      ctx.strokeStyle = push > 0.2 ? `rgba(170,215,255,${0.35 * k})` : `rgba(255,255,255,${0.28 * k})`; ctx.lineWidth = 1 + (j % 3);
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0 * 0.75); ctx.lineTo(cx + Math.cos(a) * Math.min(R1, r0 + len), cy + Math.sin(a) * Math.min(R1, r0 + len) * 0.75); ctx.stroke();
+    }
+    const gr = ctx.createRadialGradient(cx, cy, R0 * 0.8, cx, cy, R1); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, `rgba(0,0,0,${0.35 * k})`); // vignette
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, v.w, v.h);
+    ctx.restore();
+  }
   drawHud(v, car, pi) {
     const s = clamp(Math.min(v.w, v.h) / 380, 0.7, 1.2), col = PCOLORS[pi];
     ctx.save(); ctx.translate(v.x, v.y);
+    if (this.r3) this.drawSpeedLines(v, car, pi);
     ctx.textBaseline = "top"; ctx.textAlign = "left";
     // place et tour
     ctx.fillStyle = "rgba(10,8,22,.62)"; rr(ctx, 8, 8, 128 * s, 62 * s, 10); ctx.fill();
@@ -1136,7 +1166,7 @@ class Game {
     ctx.fillStyle = "#ffd23c"; ctx.beginPath(); ctx.arc(8 + 16 * s, 90 * s, 8 * s, 0, 7); ctx.fill();
     ctx.fillStyle = "#f4eedd"; ctx.font = `700 ${16 * s}px 'Chakra Petch', sans-serif`; ctx.fillText(`× ${car.coins}`, 8 + 30 * s, 81 * s);
     if (this.r3) { // compteur de vitesse (en haut quand les pédales occupent le bas de l'écran)
-      ctx.save(); if (cfg.ctrl !== "joy") ctx.translate(0, -(v.h - 22 * s) + 50 * s + (v.y === 0 && v.x < VW / 2 - 40 && v.x + v.w > VW / 2 + 40 ? 30 : 0));
+      ctx.save(); if (ctrlMode() !== "joy") ctx.translate(0, -(v.h - 22 * s) + 50 * s + (v.y === 0 && v.x < VW / 2 - 40 && v.x + v.w > VW / 2 + 40 ? 30 : 0));
       ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "rgba(10,8,22,.5)"; rr(ctx, v.w / 2 - 52 * s, v.h - 52 * s, 104 * s, 50 * s, 12); ctx.fill();
       ctx.font = `${30 * s}px Bungee, Impact, sans-serif`; ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2 + 2, v.h - 22 * s + 2);
@@ -1148,6 +1178,13 @@ class Game {
     const mini = this.world.mini, ms = clamp(v.w * 0.24 / mini.width, 0.3, 0.75);
     const inset = (Math.abs(v.x + v.w - VW / 2) < 2 && v.y === 0) ? 30 : 0;
     this.drawMini(v.w - mini.width * ms - 8 - inset, 8, ms);
+    (this.miniRect || (this.miniRect = []))[pi] = { x: v.x + v.w - mini.width * ms - 8 - inset, y: v.y + 8, w: mini.width * ms, h: mini.height * ms };
+    // jauge de nitro
+    { const nw = 110 * s, nx = 8, ny = 110 * s;
+      ctx.fillStyle = "rgba(10,8,22,.62)"; rr(ctx, nx, ny, nw + 36 * s, 20 * s, 8); ctx.fill();
+      ctx.fillStyle = "#2f8cff"; if (car.nitroOn && car.nitro > 0) ctx.fillStyle = Math.floor(this.t * 12) % 2 ? "#bfe9ff" : "#2f8cff";
+      rr(ctx, nx + 34 * s, ny + 5 * s, Math.max(2, nw * car.nitro - 4), 10 * s, 4); ctx.fill();
+      ctx.fillStyle = "#cfe6ff"; ctx.font = `700 ${11 * s}px 'Chakra Petch', sans-serif`; ctx.textBaseline = "middle"; ctx.fillText("N2O", nx + 5 * s, ny + 10.5 * s); ctx.textBaseline = "top"; }
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     // messages
     const mid = (txt, color, size, y) => { ctx.font = `${size}px Bungee, Impact, sans-serif`; ctx.fillStyle = "#000"; ctx.fillText(txt, v.w / 2 + 3, y + 3); ctx.fillStyle = color; ctx.fillText(txt, v.w / 2, y); };
@@ -1156,7 +1193,7 @@ class Game {
     else if (car.wrong > 0.8 && Math.floor(this.t * 3) % 2) mid("MAUVAIS SENS", "#ff3d6e", 26 * s, v.h * 0.3);
     if (car.spin > 0) mid("AÏE !", "#ff3d6e", 24 * s, v.h * 0.4);
     // contrôles tactiles
-    if ((touchMode || cfg.ctrl !== "joy") && cfg.ctrl !== "joy" && this.phase !== "done") this.drawPads(v, pi, col);
+    if (ctrlMode() !== "joy" && this.phase !== "done") this.drawPads(v, pi, col);
     else if (touchMode) {
       const st = sticks[pi];
       if (st) {
@@ -1168,6 +1205,13 @@ class Game {
         ctx.beginPath(); ctx.arc(70, v.h - 70, STICK_R, 0, 7); ctx.stroke(); ctx.setLineDash([]);
         ctx.font = `700 12px 'Chakra Petch', sans-serif`; ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fillText("pouce ici", 70, v.h - 70);
       }
+    }
+    if (touchMode && this.humans.length === 1 && this.phase !== "done") {
+      const nb = nitroBtn(v), on = nitroTouch.has(pi);
+      ctx.globalAlpha = 0.9; ctx.fillStyle = on ? "#bfe9ff" : car.nitro > 0.15 ? "#2f8cff" : "rgba(47,140,255,.3)";
+      ctx.beginPath(); ctx.arc(nb.x - v.x, nb.y - v.y, nb.r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.font = `${nb.r * 0.55}px Bungee, Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N2O", nb.x - v.x, nb.y - v.y + 1);
     }
     {
       const b = itemBtn(v);
@@ -1429,7 +1473,7 @@ class Scene3D {
         for (let k = 0; k < 5; k++) { c.beginPath(); c.ellipse(x + (k - 2) * rx * 0.45, y + Math.random() * 6, rx * 0.5, rx * 0.16, 0, 0, 7); c.fill(); }
       }
     }));
-    this.sky = add(new T.SphereGeometry(11000, 32, 16), basic({ map: skyTex, side: T.BackSide, fog: false, depthWrite: false }));
+    this.sky = add(new T.SphereGeometry(11000, 32, 16), basic({ map: skyTex, side: T.BackSide, fog: false, depthWrite: false, toneMapped: false }));
     sc.add(new T.HemisphereLight(night ? 0x6a78c8 : 0xeaf3ff, night ? 0x1c1c34 : new T.Color(th.off).lerp(new T.Color(0x808080), 0.5).getHex(), night ? 0.95 : 0.6));
     // soleil assez bas : ombres longues sous les voitures
     const sun = this.sun = new T.DirectionalLight(night ? 0x8b9bd0 : 0xfff0d2, night ? 0.25 : 0.9); this.sunDir = new T.Vector3(-0.75, 0.62, 0.3).normalize();
@@ -1463,7 +1507,7 @@ class Scene3D {
       c.fillRect(0, H / 2 - 4, W * 0.45, 8);                                         // pointillé central
     }, true));
     rTex.wrapT = T.ClampToEdgeWrapping;
-    const roadMat = layer(th.ice ? keep(new T.MeshPhongMaterial({ map: rTex, shininess: 90, specular: 0x9fb4cc, side: T.DoubleSide })) : lam({ map: rTex, side: T.DoubleSide }), 3);
+    const roadMat = layer(keep(new T.MeshPhongMaterial({ map: rTex, side: T.DoubleSide, shininess: th.ice ? 90 : night ? 60 : 18, specular: th.ice ? 0x9fb4cc : night ? 0x3a3550 : 0x1e1e1e })), 3);
     add(ribbonGeo(w, -R, R, 0.6, 170, 2 * R), roadMat).receiveShadow = true;
 
     // ----- murs de protection -----
@@ -1643,17 +1687,19 @@ class Scene3D {
       else for (let i = 0; i < 12; i++) { c.fillStyle = ["#ff3cdc", "#3ce6ff", "#ffd28c"][i % 3]; c.fillRect(Math.random() * W, H * 0.4 + Math.random() * 20, 18, 6); }
     }));
     env.mapping = T.EquirectangularReflectionMapping;
-    const glass = keep(new T.MeshPhongMaterial({ color: 0x0e1622, shininess: 150, specular: 0xb0c4dc, envMap: env, combine: T.MixOperation, reflectivity: 0.45 }));
+    let envPB = env; // version filtrée pour les matériaux physiques (reflets flous selon la rugosité)
+    try { const pm = new T.PMREMGenerator(this.r); envPB = keep(pm.fromEquirectangular(env).texture); pm.dispose(); } catch (e) {}
+    const glass = keep(new T.MeshStandardMaterial({ color: 0x0a0f18, metalness: 0.1, roughness: 0.04, envMap: envPB, envMapIntensity: 1.6 }));
     const darkM = keep(new T.MeshPhongMaterial({ color: 0x1a1a1e, shininess: 30, specular: 0x222222 })), lightM = basic({ vertexColors: true }), wheelM = keep(new T.MeshPhongMaterial({ vertexColors: true, shininess: 40, specular: 0x333333 }));
-    const chromeM = keep(new T.MeshPhongMaterial({ color: 0xd8dce4, shininess: 160, specular: 0xffffff, envMap: env, combine: T.MixOperation, reflectivity: 0.7 }));
+    const chromeM = keep(new T.MeshStandardMaterial({ color: 0xe8ecf2, metalness: 1, roughness: 0.12, envMap: envPB, envMapIntensity: 1.2 }));
+    const paintMat = (color, metal) => keep(new T.MeshPhysicalMaterial({ color, metalness: metal, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06, envMap: envPB, envMapIntensity: 1.1 }));
     const glowT = keep(glowTex());
     const brakeMat = basic({ map: glowT, color: 0xff2a1a, transparent: true, depthWrite: false, blending: T.AdditiveBlending });
     const headMat = basic({ map: glowT, color: 0xfff4d8, transparent: true, depthWrite: false, blending: T.AdditiveBlending });
     const shieldMat = basic({ color: 0x50dcff, transparent: true, opacity: 0.28, blending: T.AdditiveBlending, depthWrite: false });
     this.cars = game.cars.map(car => {
       const G = carGeometry(car.model), root = new T.Group(); root.rotation.order = "YXZ";
-      const paintM = keep(new T.MeshPhongMaterial({ color: car.color, shininess: 140, specular: 0x8a8a8a, envMap: env, combine: T.MixOperation, reflectivity: 0.26 }));
-      const accM = keep(new T.MeshPhongMaterial({ color: car.m.accent, shininess: 100, specular: 0x555555, envMap: env, combine: T.MixOperation, reflectivity: 0.18 }));
+      const paintM = paintMat(car.color, 0.45), accM = paintMat(car.m.accent, 0.3);
       const lift = new T.Group(); lift.position.y = 0; root.add(lift);
       for (const [geo, mat] of [[G.paint, paintM], [G.glass, glass], [G.dark, darkM], [G.chrome, chromeM], [G.lights, lightM], [G.accent, accM]]) if (geo) { const me = new T.Mesh(geo, mat); me.castShadow = mat !== lightM; lift.add(me); }
       const wheels = [];
@@ -1676,6 +1722,15 @@ class Scene3D {
       sc.add(root);
       return { car, root, wheels, paintM, base: new T.Color(car.color), shield, lift, r: G.r, roll: 0, pitch: 0, vf: 0, brakes };
     });
+
+    // ----- traces de pneus -----
+    {
+      const n = low ? 400 : 1200, pos = new Float32Array(n * 6 * 3), g = keep(new T.BufferGeometry());
+      g.setAttribute("position", new T.BufferAttribute(pos, 3).setUsage(T.DynamicDrawUsage));
+      const m = new T.Mesh(g, layer(basic({ color: th.ice ? 0xeef4ff : 0x101012, transparent: true, opacity: th.ice ? 0.5 : 0.42, depthWrite: false }), 4));
+      m.frustumCulled = false; sc.add(m);
+      this.skid = { pos, g, n, k: 0, last: new Map() };
+    }
 
     // ----- particules -----
     const pt = keep(glowTex());
@@ -1732,6 +1787,25 @@ class Scene3D {
       o.lift.position.y = c.spin > 0 ? Math.abs(Math.sin(gt * 18)) * 3 : 0;
       if (r.userData.marker) r.userData.marker.position.y = r.userData.top + 14 + Math.sin(t * 4) * 2;
     }
+    // traces de pneus : un segment par roue arrière quand la voiture glisse
+    {
+      const sk = this.skid; let dirty = false;
+      for (const o of this.cars) {
+        const c = o.car, key = c, prev = sk.last.get(key);
+        if (!((c.drifting || c.spin > 0 || (c.brake && c.speed > 260)) && c.onRoad)) { sk.last.delete(key); continue; }
+        const fx = Math.cos(c.a), fy = Math.sin(c.a), rx = -fy, ry = fx, s = c.scale;
+        const bx = c.x - fx * c.m.len * 0.33 * s, by = c.y - fy * c.m.len * 0.33 * s, hw = c.m.wid * 0.4 * s;
+        const now = [[bx + rx * hw, by + ry * hw], [bx - rx * hw, by - ry * hw]];
+        if (prev) for (let w2 = 0; w2 < 2; w2++) {
+          const [ax, ay] = prev[w2], [qx, qy] = now[w2], dl = Math.hypot(qx - ax, qy - ay); if (dl < 0.5 || dl > 60) continue;
+          const nx = -(qy - ay) / dl * 2.6, ny = (qx - ax) / dl * 2.6, i = (sk.k++ % sk.n) * 18, y = 0.7, P = sk.pos;
+          P.set([ax + nx, y, ay + ny, qx + nx, y, qy + ny, ax - nx, y, ay - ny, ax - nx, y, ay - ny, qx + nx, y, qy + ny, qx - nx, y, qy - ny], i);
+          dirty = true;
+        }
+        sk.last.set(key, now);
+      }
+      if (dirty) { sk.g.attributes.position.needsUpdate = true; sk.g.setDrawRange(0, Math.min(sk.k, sk.n) * 6); }
+    }
     // objets du circuit
     const hue = (t * 0.35) % 1;
     this.boxMat.color.setHSL(hue, 0.85, 0.6);
@@ -1781,14 +1855,28 @@ class Scene3D {
     game.views.forEach((v, i) => {
       const car = game.humans[i], cs = this.cams[i], cam = cs.cam, k = 1 - Math.exp(-dt * 4);
       if (car.spin <= 0) cs.yaw += angDiff(cs.yaw, car.a) * k;
-      const d = 74 + car.speed * 0.035, h = 28 + car.speed * 0.008;
-      // caméra accrochée derrière la voiture ; seul l'angle suit en douceur
+      const mode = game.cams[i].mode || 0, fast = car.boost > 0 || car.star > 0 || (car.nitroOn && car.nitro > 0);
+      cs.push = (cs.push || 0) + ((fast ? 1 : 0) - (cs.push || 0)) * Math.min(1, dt * 3); // recul de la caméra quand ça pousse
       if (!cs.pos) cs.pos = new T.Vector3();
-      cs.pos.set(car.x - Math.cos(cs.yaw) * d, h, car.y - Math.sin(cs.yaw) * d);
-      const sh = game.cams[i].shake * 0.6;
+      const cy = Math.cos(cs.yaw), sy = Math.sin(cs.yaw);
+      let lookD = 46, lookY = 12;
+      if (mode === 2) { // caméra capot : au ras du pare-chocs avant
+        const fa = Math.cos(car.a), fb = Math.sin(car.a);
+        cs.pos.set(car.x + fa * car.m.len * 0.42, 10, car.y + fb * car.m.len * 0.42); lookD = 300; lookY = 9;
+        cs.yaw = car.a;
+      } else {
+        const d = (mode === 1 ? 50 + car.speed * 0.022 : 74 + car.speed * 0.035) + cs.push * 16, h = mode === 1 ? 17 + car.speed * 0.004 : 28 + car.speed * 0.008;
+        cs.pos.set(car.x - cy * d, h, car.y - sy * d);
+        if (mode === 1) { lookD = 70; lookY = 10; }
+      }
+      // tremblement de vitesse et des chocs
+      const sh = game.cams[i].shake * 0.6 + (mode === 2 ? 0.25 : 0.4) * clamp((car.speed - 350) / 300, 0, 1) + cs.push * 0.5;
       cam.position.set(cs.pos.x + rnd(-sh, sh), cs.pos.y + rnd(-sh, sh) * 0.5, cs.pos.z + rnd(-sh, sh));
-      cam.lookAt(car.x + Math.cos(cs.yaw) * 46, 12, car.y + Math.sin(cs.yaw) * 46);
-      const aspect = v.w / v.h, boost = car.boost > 0 || car.star > 0 ? 8 : 0;
+      const ly = mode === 2 ? car.a : cs.yaw;
+      cam.lookAt(car.x + Math.cos(ly) * lookD, lookY, car.y + Math.sin(ly) * lookD);
+      if (mode !== 2) cam.rotateZ(clamp(-car.steer * car.speed / 6000, -0.05, 0.05)); // léger penché dans les virages
+      for (const o of this.cars) if (o.car === car) o.root.visible = mode !== 2 && o.root.visible;
+      const aspect = v.w / v.h, boost = cs.push * 12;
       let fov = 60 + Math.min(14, car.speed / 40) + boost;
       if (aspect < 1.25) fov = 2 * Math.atan(Math.tan(fov * Math.PI / 360) * 1.25 / aspect) * 180 / Math.PI;
       cam.fov += (fov - cam.fov) * Math.min(1, dt * 5); cam.aspect = aspect; cam.updateProjectionMatrix();
@@ -1801,6 +1889,7 @@ class Scene3D {
       const y = VH - v.y - v.h;
       r.setViewport(v.x, y, v.w, v.h); r.setScissor(v.x, y, v.w, v.h);
       r.render(this.scene, cam);
+      if (mode === 2) for (const o of this.cars) if (o.car === car) o.root.visible = true;
     });
     r.setScissorTest(false);
   }
@@ -1868,8 +1957,17 @@ const SND = {
 const STICK_R = 55;
 let game = null, touchMode = matchMedia("(pointer: coarse)").matches;
 const sticks = [null, null, null, null], pointers = new Map(), keys = {};
+// À plusieurs sur un téléphone ou une petite tablette, seul le joystick est proposé (touches et volant prendraient trop de place).
+// Sur une grande tablette (environ 11 pouces et plus : diagonale d'au moins 1400 points d'écran), touches et volant restent permis.
+function bigScreen() {
+  const w = Math.max(screen.width, screen.height), h = Math.min(screen.width, screen.height);
+  return h >= 760 && Math.hypot(w, h) >= 1400;
+}
+function ctrlMode() { return (game ? game.humans.length : cfg.humans) > 1 && !bigScreen() ? "joy" : cfg.ctrl; }
 const pads = [0, 1, 2, 3].map(() => ({ L: false, R: false, gas: false, brake: false, wheel: 0, grab: null }));
 const padPtr = new Map(); // doigt -> { pi, role, a0, w0 }
+const nitroTouch = new Map(), nitroPtr = new Map(); // pilote -> doigt sur le bouton N2O
+function nitroBtn(v) { const b = itemBtn(v), r = b.r * 0.72; return { x: b.x - b.r - r - 10, y: b.y + b.r - r, r }; }
 // emplacement des touches, pédales et volant dans la vue d'un pilote
 function padLayout(v) {
   const s = clamp(Math.min(v.w, v.h) / 380, 0.62, 1.15), m = 14 * s + 4;
@@ -1882,7 +1980,7 @@ function padLayout(v) {
 }
 function itemBtn(v) {
   const r = clamp(Math.min(v.w, v.h) * 0.12, 30, 44);
-  if (cfg.ctrl !== "joy") { const P = padLayout(v), r2 = r * 0.78; return { x: P.gas.x + P.gas.w - r2, y: P.gas.y - r2 - 12 * P.s, r: r2 }; }
+  if (ctrlMode() !== "joy") { const P = padLayout(v), r2 = r * 0.78; return { x: P.gas.x + P.gas.w - r2, y: P.gas.y - r2 - 12 * P.s, r: r2 }; }
   return { x: v.x + v.w - r - 18, y: v.y + v.h - r - 18, r };
 }
 const inBox = (b, x, y, e = 10) => x > b.x - e && x < b.x + b.w + e && y > b.y - e && y < b.y + b.h + e;
@@ -1890,7 +1988,7 @@ function padRole(v, x, y) {
   const P = padLayout(v);
   if (inBox(P.gas, x, y)) return "gas";
   if (inBox(P.brake, x, y)) return "brake";
-  if (cfg.ctrl === "btn") { if (inBox(P.left, x, y, 14)) return "L"; if (inBox(P.right, x, y, 14)) return "R"; }
+  if (ctrlMode() === "btn") { if (inBox(P.left, x, y, 14)) return "L"; if (inBox(P.right, x, y, 14)) return "R"; }
   else if (Math.hypot(x - P.wheel.x, y - P.wheel.y) < P.wheel.r * 1.45) return "wheel";
   return null;
 }
@@ -1906,7 +2004,13 @@ cv.addEventListener("pointerdown", e => {
   const v = game.views[pi], b = itemBtn(v);
   e.preventDefault();
   if (Math.hypot(e.clientX - b.x, e.clientY - b.y) < b.r + 14) { game.useItem(game.humans[pi]); return; }
-  if (cfg.ctrl !== "joy") {
+  if (game.humans.length === 1) {
+    const nb = nitroBtn(v);
+    if (Math.hypot(e.clientX - nb.x, e.clientY - nb.y) < nb.r + 10) { nitroTouch.set(pi, e.pointerId); nitroPtr.set(e.pointerId, pi); return; }
+    const mm = game.miniRect && game.miniRect[pi];
+    if (mm && e.clientX > mm.x && e.clientX < mm.x + mm.w && e.clientY > mm.y && e.clientY < mm.y + mm.h) { game.nextCam(pi); return; }
+  }
+  if (ctrlMode() !== "joy") {
     const role = padRole(v, e.clientX, e.clientY); if (!role) return;
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     const P = padLayout(v);
@@ -1932,28 +2036,43 @@ cv.addEventListener("pointermove", e => {
   st.dx = dx; st.dy = dy;
 });
 const endPtr = e => {
+  const np = nitroPtr.get(e.pointerId); if (np !== undefined) { nitroPtr.delete(e.pointerId); nitroTouch.delete(np); return; }
   const q = padPtr.get(e.pointerId); if (q) { padPtr.delete(e.pointerId); padSync(q.pi); return; }
   const pi = pointers.get(e.pointerId); if (pi !== undefined) { sticks[pi] = null; pointers.delete(e.pointerId); }
 };
 cv.addEventListener("pointerup", endPtr); cv.addEventListener("pointercancel", endPtr);
 cv.addEventListener("contextmenu", e => e.preventDefault());
+// touches de chaque pilote au clavier : seul, ZQSD et flèches pilotent la même voiture
+function keyMap(pi, n) {
+  const A = { up: ["KeyW"], down: ["KeyS"], left: ["KeyA"], right: ["KeyD"], hand: ["Space"], nitro: ["ShiftLeft"], item: ["KeyE"], cam: ["KeyC"], reset: ["KeyR"] };
+  const B = { up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"], hand: ["ControlRight", "Numpad0"], nitro: ["ShiftRight"], item: ["Enter", "NumpadEnter"], cam: ["End", "Numpad1"], reset: ["Backspace"] };
+  if (n === 1 && pi === 0) { const o = {}; for (const k in A) o[k] = A[k].concat(B[k], k === "nitro" ? ["ShiftRight"] : []); return o; }
+  return pi === 0 ? A : pi === 1 ? B : null;
+}
+const keyOn = list => list.some(k => keys[k]);
 addEventListener("keydown", e => {
-  keys[e.code] = true;
-  if (!game || game.phase !== "race") return;
-  if (e.code === "Enter" && game.humans[0]) game.useItem(game.humans[0]);
-  if (e.code === "KeyE" && game.humans[1]) game.useItem(game.humans[1]);
-  if (e.code === "Escape") togglePause(true);
+  if (game && game.phase !== "done" && /^(Arrow|Space)/.test(e.code)) e.preventDefault(); // la page ne défile pas
+  const first = !keys[e.code]; keys[e.code] = true;
+  if (!game || game.phase !== "race" || !first) return;
+  if (e.code === "Escape" || e.code === "KeyP") { togglePause(!game.paused); return; }
+  game.humans.forEach((car, pi) => {
+    const km = keyMap(pi, game.humans.length); if (!km) return;
+    if (km.item.includes(e.code)) game.useItem(car);
+    if (km.cam.includes(e.code)) game.nextCam(pi);
+    if (km.reset.includes(e.code)) game.rescue(car);
+  });
 });
 addEventListener("keyup", e => { keys[e.code] = false; });
 
 function readInput(car, g) {
   const st = sticks[car.pi];
   car.drift = false;
+  car.nitroOn = (nitroTouch.has(car.pi) || keyOn((keyMap(car.pi, g.humans.length) || { nitro: [] }).nitro)) && car.nitro > 0.02;
   const pd = pads[car.pi];
-  if (cfg.ctrl !== "joy" && (pd.L || pd.R || pd.gas || pd.brake || pd.grab || pd.wheel)) {
+  if (ctrlMode() !== "joy" && (pd.L || pd.R || pd.gas || pd.brake || pd.grab || pd.wheel)) {
     // touches ou volant : direction progressive comme un vrai volant, pédales d'accélérateur et de frein
     if (!pd.grab) pd.wheel *= 0.8; // le volant revient au centre quand on le lâche
-    const target = cfg.ctrl === "wheel" ? clamp(pd.wheel / 1.6, -1, 1) : (pd.R ? 1 : 0) - (pd.L ? 1 : 0);
+    const target = ctrlMode() === "wheel" ? clamp(pd.wheel / 1.6, -1, 1) : (pd.R ? 1 : 0) - (pd.L ? 1 : 0);
     car.steer += clamp(target - car.steer, -0.14, 0.14);
     car.throttle = pd.gas ? 1 : 0; car.brake = pd.brake && !(pd.gas && car.speed > 200);
     car.drift = pd.gas && pd.brake && Math.abs(car.steer) > 0.4 && car.speed > 200;
@@ -1973,11 +2092,18 @@ function readInput(car, g) {
     } else { car.steer = 0; car.throttle = 0; car.brake = true; }
     return;
   }
-  const set = car.pi === 0 ? ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftRight"]
-    : car.pi === 1 ? ["KeyW", "KeyS", "KeyA", "KeyD", "Space"] : null;
-  if (set) {
-    car.throttle = keys[set[0]] ? 1 : 0; car.brake = !!keys[set[1]];
-    car.steer = (keys[set[3]] ? 1 : 0) - (keys[set[2]] ? 1 : 0); car.drift = !!keys[set[4]];
+  const km = keyMap(car.pi, g.humans.length);
+  if (km) {
+    // volant progressif : on tourne de plus en plus en gardant la touche, retour au centre plus rapide, moins de braquage à grande vitesse
+    const want = (keyOn(km.right) ? 1 : 0) - (keyOn(km.left) ? 1 : 0);
+    const lim = 1 - 0.3 * clamp(car.speed / 600, 0, 1);
+    const target = want * lim, rate = want === 0 || Math.sign(want) !== Math.sign(car.steer) ? 0.2 : 0.09;
+    car.steer += clamp(target - car.steer, -rate, rate);
+    const up = keyOn(km.up), down = keyOn(km.down);
+    car.throttle = up ? Math.min(1, car.throttle + 0.12) : 0; car.brake = down;
+    car.drift = keyOn(km.hand) && car.speed > 120;
+    if (car.drift && !up) car.brake = true;
+    car.nitroOn = keyOn(km.nitro) && car.nitro > 0.02;
   } else { car.throttle = 0; car.brake = false; car.steer = 0; }
 }
 
@@ -2009,7 +2135,8 @@ function renderMenu() {
   document.querySelectorAll("#humans button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.n === cfg.humans));
   document.querySelectorAll("#bots button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.b === cfg.bots));
   document.querySelectorAll("#laps button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.l === cfg.laps));
-  document.querySelectorAll("#ctrl button").forEach(b => b.setAttribute("aria-pressed", b.dataset.c === cfg.ctrl));
+  document.querySelectorAll("#ctrl button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.c === ctrlMode()); b.disabled = cfg.humans > 1 && !bigScreen() && b.dataset.c !== "joy"; });
+  $("ctrlNote").textContent = cfg.humans > 1 && !bigScreen() ? "À plusieurs sur téléphone : joystick pour tout le monde. Touches et volant : en solo, ou à plusieurs sur une tablette de 11 pouces et plus." : cfg.humans > 1 ? "Grande tablette : touches et volant permis à plusieurs." : "Sur ordinateur : clavier (voir « Comment jouer »).";
   document.querySelectorAll("#tracks button").forEach((b, i) => b.setAttribute("aria-pressed", i === cfg.track));
   const g = $("garage"); g.innerHTML = "";
   for (let p = 0; p < cfg.humans; p++) {
@@ -2047,7 +2174,7 @@ function buildMenu() {
 function startRace() {
   audioOn();
   try { if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {})).catch(() => {}); } catch (e) {}
-  sticks.fill(null); pointers.clear(); padPtr.clear(); for (let i = 0; i < 4; i++) padSync(i), pads[i].wheel = 0;
+  sticks.fill(null); pointers.clear(); padPtr.clear(); nitroTouch.clear(); nitroPtr.clear(); for (let i = 0; i < 4; i++) padSync(i), pads[i].wheel = 0;
   if (game && game.r3) game.r3.dispose();
   SND.stop();
   game = new Game({ humans: cfg.humans, bots: cfg.bots, laps: cfg.laps, track: cfg.track, cars: cfg.cars.slice() });
@@ -2082,6 +2209,6 @@ function frame(now) {
 }
 buildMenu(); resize(); requestAnimationFrame(frame);
 // Accès pour les tests automatiques
-window.__TR = { cfg, start: startRace, get game() { return game; }, sticks, AI, pads, layout: padLayout };
+window.__TR = { cfg, start: startRace, get game() { return game; }, sticks, AI, pads, layout: padLayout, ctrlMode };
 </script>
 </body></html>
