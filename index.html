@@ -123,6 +123,199 @@ body.land #results .result { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1
   width: 44px; height: 32px; border-radius: 999px; border: 1px solid #ffffff44; background: #00000066; color: var(--fg); z-index: 3; font-weight: 700;
 }
 @media (prefers-reduced-motion: reduce) { .go:active { transform: none; } }
+/* =====================================================================
+   Habillage « cristal » : verre dépoli, arêtes lumineuses, reflets qui suivent le doigt
+   ===================================================================== */
+@property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+:root {
+  --glass: rgba(255,255,255,.06);
+  --glass-hi: rgba(255,255,255,.16);
+  --edge-a: rgba(255,255,255,.55);
+  --ice: #CFE6FA;
+  --ease-spring: cubic-bezier(.2,.9,.25,1.12);
+  --ease-out: cubic-bezier(.16,.84,.28,1);
+}
+.screen {
+  background:
+    radial-gradient(60% 50% at 12% 0%, rgba(11,79,135,.55), transparent 70%),
+    radial-gradient(50% 45% at 100% 100%, rgba(232,120,78,.22), transparent 70%),
+    radial-gradient(40% 40% at 85% 15%, rgba(79,209,181,.10), transparent 70%),
+    linear-gradient(180deg, #0B1016 0%, #0E1114 60%, #0A0D10 100%);
+}
+#menuFx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: .9; }
+#menu .wrap { position: relative; z-index: 1; padding-bottom: 92px; }
+#menu::before { /* aurore qui dérive lentement derrière le verre */
+  content: ""; position: fixed; inset: -30%; z-index: 0; pointer-events: none;
+  background: conic-gradient(from 0deg at 50% 50%, rgba(111,174,230,.0), rgba(111,174,230,.16), rgba(232,120,78,.12), rgba(79,209,181,.08), rgba(111,174,230,.0));
+  filter: blur(60px); animation: spin 40s linear infinite; will-change: transform; /* seule la rotation bouge : rien à redessiner */
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes aurora { to { --ang: 360deg; } }
+
+/* titre */
+.hero { display: grid; gap: 6px; }
+.kicker { display: inline-flex; align-items: center; gap: 10px; font-size: .72rem; letter-spacing: .22em; text-transform: uppercase; color: var(--ice); font-weight: 700; }
+.kicker .live { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 0 rgba(232,120,78,.7); animation: live 2s ease-out infinite; }
+@keyframes live { 70% { box-shadow: 0 0 0 9px rgba(232,120,78,0); } 100% { box-shadow: 0 0 0 0 rgba(232,120,78,0); } }
+#menu h1 { font-size: clamp(2.6rem, 8vw, 4.6rem); letter-spacing: -.02em; }
+#menu h1 .s { background: linear-gradient(180deg, #FFFFFF 20%, #EEF3F8 60%, #C3D0DD 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#menu h1 em { background: linear-gradient(100deg, #E8784E 0%, #FFB08E 30%, #FFE3D4 42%, #F29466 55%, #E8784E 80%); background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 6s ease-in-out infinite; padding-right: .08em; }
+@keyframes shimmer { 0%, 100% { background-position: 100% 0; } 50% { background-position: 0 0; } }
+.hero .rule { height: 1px; max-width: 420px; background: linear-gradient(90deg, rgba(255,255,255,.6), rgba(111,174,230,.4) 40%, transparent); margin-top: 4px; }
+.tag { max-width: 60ch; color: #AEB6C0; }
+
+/* panneaux en verre */
+.box {
+  position: relative; isolation: isolate; border-radius: 24px; padding: 16px; gap: 12px; border: 0;
+  background: linear-gradient(160deg, rgba(255,255,255,.085), rgba(255,255,255,.02) 42%, rgba(255,255,255,.045));
+  -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.35), 0 30px 60px -32px rgba(0,0,0,.85);
+}
+.box::before { /* arête de cristal : bordure dégradée */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: -1;
+  background: linear-gradient(140deg, rgba(255,255,255,.5), rgba(255,255,255,.06) 32%, rgba(111,174,230,.22) 68%, rgba(232,120,78,.38));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.box::after { /* reflet qui suit le doigt ou la souris */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0; transition: opacity .4s;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(255,255,255,.09), transparent 60%);
+}
+.box.lit::after { opacity: 1; }
+.lbl { display: flex; align-items: center; gap: 8px; font-size: .68rem; letter-spacing: .2em; color: #9CC7EF; font-weight: 700; }
+.lbl::before { content: ""; width: 14px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--amber), rgba(232,120,78,0)); }
+.grp { display: grid; gap: 8px; }
+
+/* boutons segmentés : une pastille de cristal glisse vers le choix */
+.seg { position: relative; gap: 4px; padding: 4px; border-radius: 22px; background: rgba(0,0,0,.32); box-shadow: inset 0 1px 3px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06); }
+.seg button {
+  position: relative; z-index: 1; border: 0; background: transparent; color: #C7CED6; border-radius: 18px;
+  padding: 11px 10px; font-weight: 700; font-size: .98rem; letter-spacing: .01em; overflow: hidden;
+  transition: color .35s var(--ease-out), transform .2s;
+}
+.seg button[aria-pressed="true"] { background: transparent; color: #12161B; border-color: transparent; }
+.seg button:not(:disabled):not([aria-pressed="true"]):hover { color: #fff; }
+.seg button:active:not(:disabled) { transform: scale(.96); }
+.seg button:disabled { opacity: .3; cursor: not-allowed; }
+.seg .thumb {
+  position: absolute; z-index: 0; left: 0; top: 0; width: 0; height: 0; border-radius: 18px; pointer-events: none;
+  background: linear-gradient(180deg, #FFFFFF, #E4EBF2 60%, #CBD6E2);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -2px 4px rgba(120,140,165,.35), 0 6px 16px -6px rgba(0,0,0,.7), 0 0 22px -6px rgba(207,230,250,.55);
+  transition: transform .5s var(--ease-spring), width .5s var(--ease-spring), height .5s var(--ease-spring), opacity .3s;
+}
+.seg .thumb::after { content: ""; position: absolute; inset: 1px 10% auto; height: 45%; border-radius: 16px 16px 50% 50%; background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,0)); }
+
+/* ondulation au toucher */
+.rip { position: absolute; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0); background: radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 70%); animation: rip .65s var(--ease-out) forwards; z-index: 2; }
+@keyframes rip { to { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+
+/* carte du circuit choisi */
+.map { position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 16 / 9; max-height: 300px; width: 100%; perspective: 900px; touch-action: pan-y;
+  background: #0B0F14; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), 0 20px 40px -24px rgba(0,0,0,.9); }
+.map .tilt { position: absolute; inset: 0; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) scale(1.02); transition: transform .5s var(--ease-out); transform-style: preserve-3d; }
+.map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.map .gloss { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(125deg, rgba(255,255,255,.14), rgba(255,255,255,0) 35%), linear-gradient(0deg, rgba(6,9,12,.88) 0%, rgba(6,9,12,.55) 28%, rgba(6,9,12,0) 55%); }
+.map .info { position: absolute; left: 14px; bottom: 12px; right: 110px; display: grid; gap: 4px; pointer-events: none; }
+.map .k { font-size: .62rem; letter-spacing: .22em; text-transform: uppercase; color: var(--ice); font-weight: 700; opacity: .85; }
+.map .nm { font-family: var(--serif); font-size: clamp(1.4rem, 3.6vw, 2rem); font-weight: 600; line-height: 1; text-shadow: 0 2px 18px rgba(0,0,0,.8); }
+.map .ds { font-size: .8rem; color: #C9D0D8; text-shadow: 0 1px 8px rgba(0,0,0,.9); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.chip { font-size: .68rem; font-weight: 700; letter-spacing: .04em; padding: 4px 9px; border-radius: 999px; color: #EAF2FA; background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.chip.hot { background: rgba(232,120,78,.25); box-shadow: inset 0 0 0 1px rgba(232,120,78,.6); }
+.mapnav { position: absolute; bottom: 12px; width: 42px; height: 42px; border-radius: 50%; border: 0; color: #fff; font-size: 1.3rem; line-height: 1;
+  background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), inset 0 0 0 1px rgba(255,255,255,.18), 0 8px 18px -8px rgba(0,0,0,.8);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: transform .25s var(--ease-spring), background .3s; overflow: hidden; }
+.mapnav:hover { background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.1)); }
+.mapnav:active { transform: scale(.9); }
+#mapPrev { right: 62px; } #mapNext { right: 12px; }
+.map .count { position: absolute; top: 12px; right: 14px; font-variant-numeric: tabular-nums; font-size: .72rem; font-weight: 800; letter-spacing: .1em; color: #fff; padding: 5px 10px; border-radius: 999px; background: rgba(0,0,0,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+
+/* vignettes des 15 circuits */
+.tracks { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); grid-auto-rows: max-content; gap: 10px; max-height: 300px; padding: 4px; margin: -4px; scroll-snap-type: y proximity; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
+.tracks button { position: relative; isolation: isolate; scroll-snap-align: start; padding: 6px 6px 8px; border-radius: 16px; border: 0; gap: 3px;
+  background: linear-gradient(170deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+  transition: transform .35s var(--ease-spring), box-shadow .35s, background .35s; overflow: hidden; }
+.tracks button:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), 0 12px 24px -14px rgba(0,0,0,.9); }
+.tracks button[aria-pressed="true"] { box-shadow: 0 14px 28px -14px rgba(232,120,78,.7); background: linear-gradient(170deg, rgba(232,120,78,.18), rgba(255,255,255,.03)); }
+.tracks button[aria-pressed="true"]::before { /* anneau lumineux qui tourne autour du circuit choisi */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; z-index: -1;
+  background: conic-gradient(from var(--ang), #E8784E, #FFE3D4, #6FAEE6, #E8784E 60%, #FFB08E, #E8784E);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: aurora 4s linear infinite;
+}
+.tracks button[aria-pressed="true"]::after { content: "✓"; position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: .7rem; font-weight: 900; color: var(--on-amber); background: var(--amber); box-shadow: 0 0 12px rgba(232,120,78,.8); }
+.tracks canvas { border-radius: 11px; aspect-ratio: 2 / 1.15; }
+.tracks b { font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tracks span { font-size: .66rem; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* garage */
+.pilot { position: relative; grid-template-columns: auto 92px 1fr auto auto; gap: 10px; padding: 8px 10px; border-radius: 18px;
+  background: linear-gradient(170deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.pilot .n { font-size: .85rem; letter-spacing: .06em; width: auto; padding: 5px 9px; border-radius: 999px; background: rgba(0,0,0,.3); box-shadow: inset 0 0 0 1px currentColor; text-align: center; }
+.pilot canvas { width: 92px; height: 52px; filter: drop-shadow(0 8px 10px rgba(0,0,0,.6)); }
+.pilot canvas.swap { animation: carIn .5s var(--ease-spring); }
+@keyframes carIn { from { transform: translateX(var(--from, 30px)) scale(.9); opacity: 0; } }
+.pilot .m b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: center; margin-top: 4px; max-width: 260px; }
+.stats i { font-style: normal; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: inherit; width: var(--w, 0%); background: linear-gradient(90deg, #6FAEE6, #CFE6FA); box-shadow: 0 0 8px rgba(111,174,230,.6); transition: width .7s var(--ease-out); }
+.bar.a > span { background: linear-gradient(90deg, #E8784E, #FFC3A6); box-shadow: 0 0 8px rgba(232,120,78,.6); }
+.bar.t > span { background: linear-gradient(90deg, #4FD1B5, #C9F5EA); box-shadow: 0 0 8px rgba(79,209,181,.6); }
+.arrow { position: relative; overflow: hidden; width: 42px; height: 42px; border: 0; color: #fff;
+  background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.04)); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 0 0 1px rgba(255,255,255,.14);
+  transition: transform .25s var(--ease-spring), background .3s; }
+.arrow:hover { background: linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,.08)); }
+.arrow:active { transform: scale(.88); }
+
+/* bouton principal : cristal orange, reflet qui balaie, flèche qui avance */
+.gobar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(10,13,16,0), rgba(10,13,16,.75) 40%); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.gobar .go { display: flex; width: 100%; max-width: 980px; margin: 0 auto; }
+.go {
+  position: relative; overflow: hidden; isolation: isolate; align-items: center; justify-content: center; gap: 14px;
+  background: linear-gradient(180deg, #F7A27E 0%, #E8784E 52%, #D2602F 100%); color: #1A0B05;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -3px 8px rgba(120,40,10,.35), 0 18px 36px -14px rgba(232,120,78,.85), 0 0 0 1px rgba(255,190,160,.35);
+  transition: transform .3s var(--ease-spring), box-shadow .3s, filter .3s;
+}
+.go::before { content: ""; position: absolute; inset: 1px 1px 50%; border-radius: 999px 999px 40% 40%; background: linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,0)); z-index: -1; }
+.go::after { content: ""; position: absolute; top: -50%; bottom: -50%; width: 38%; left: -60%; transform: skewX(-22deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent); animation: sweep 3.8s var(--ease-out) infinite; }
+@keyframes sweep { 0%, 55% { left: -60%; } 100% { left: 140%; } }
+.go:hover { filter: brightness(1.06) saturate(1.05); transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -3px 8px rgba(120,40,10,.35), 0 24px 44px -14px rgba(232,120,78,.95), 0 0 0 1px rgba(255,190,160,.5); }
+.go:active { transform: translateY(1px) scale(.985); }
+.go .arr { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(26,11,5,.14); box-shadow: inset 0 0 0 1px rgba(26,11,5,.2); transition: transform .35s var(--ease-spring); }
+.go:hover .arr { transform: translateX(4px); }
+.go .arr svg { width: 16px; height: 16px; }
+.ghost { position: relative; overflow: hidden; color: #EEF2F6; border: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.04)); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 0 0 1px rgba(255,255,255,.16);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: transform .25s var(--ease-spring), background .3s; }
+.ghost:hover { background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.07)); }
+.ghost:active { transform: scale(.97); }
+.rank div { background: linear-gradient(170deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.rank div.me { outline: 0; box-shadow: inset 0 0 0 1.5px var(--amber), 0 10px 24px -14px rgba(232,120,78,.8); }
+#pauseBtn { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); background: rgba(14,17,20,.45); box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+
+/* aide repliable */
+details summary { list-style: none; display: flex; align-items: center; justify-content: space-between; padding: 2px 2px; }
+details summary::-webkit-details-marker { display: none; }
+details summary::after { content: "+"; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); transition: transform .35s var(--ease-spring); }
+details[open] summary::after { transform: rotate(45deg); }
+.items div { padding: 6px 8px; border-radius: 12px; background: rgba(255,255,255,.035); }
+
+/* apparition en cascade à l'ouverture du menu */
+.rise { animation: rise .9s var(--ease-out) both; animation-delay: calc(var(--d, 0) * 90ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(22px) scale(.985); filter: blur(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .rise, #menu::before, .go::after, #menu h1 em, .tracks button[aria-pressed="true"]::before, .kicker .live { animation: none; }
+  .seg .thumb, .map .tilt { transition: none; }
+}
+/* téléphone en paysage : carte et vignettes moins hautes pour tout garder lisible */
+body.land .map { max-height: 190px; }
+body.land .tracks { max-height: 190px; }
+body.land .gobar { padding-top: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+body.land .gobar .go { padding: 9px; font-size: 1rem; } body.land .go .arr { width: 28px; height: 28px; }
+body.land #menu h1 { font-size: 2.6rem; } body.land #menu .wrap { padding-bottom: 70px; }
+@media (max-width: 520px) { .pilot { grid-template-columns: 70px 1fr auto auto; gap: 8px; padding-top: 12px; } .pilot canvas { width: 70px; height: 40px; }
+  .pilot .n { position: absolute; top: 6px; left: 8px; font-size: .62rem; padding: 2px 6px; z-index: 1; } .pilot .arrow { width: 36px; height: 36px; } .stats { gap: 2px 6px; } .map { aspect-ratio: 4 / 3; } .map .info { right: 104px; } .map .ds { display: none; } }
 </style>
 </head><body>
 
@@ -132,48 +325,56 @@ body.land #results .result { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1
 <button id="pauseBtn" hidden aria-label="Pause">II</button>
 
 <div id="menu" class="screen">
+  <canvas id="menuFx" aria-hidden="true"></canvas>
   <div class="wrap">
-    <div>
-      <div class="lbl">Consortium SAPY présente</div>
-      <h1>Sapy <em>Rush</em></h1>
+    <header class="hero rise">
+      <div class="kicker"><span class="live"></span>Consortium SAPY présente</div>
+      <h1><span class="s">Sapy</span> <em>Rush</em></h1>
+      <div class="rule"></div>
       <p class="tag">Course à plusieurs sur le même téléphone. Un joystick par pilote, des objets à ramasser, et tous les coups sont permis.</p>
-    </div>
+    </header>
     <div class="cols">
-      <div class="box">
-        <div class="lbl">Pilotes sur ce téléphone</div>
+      <section class="box rise" style="--d:1" data-glow>
+        <div class="grp"><div class="lbl">Pilotes sur ce téléphone</div>
         <div class="seg" id="humans">
           <button id="h1" data-n="1">1</button><button id="h2" data-n="2">2</button>
           <button id="h3" data-n="3">3</button><button id="h4" data-n="4">4</button>
-        </div>
-        <div class="lbl">Adversaires ordinateur</div>
+        </div></div>
+        <div class="grp"><div class="lbl">Adversaires ordinateur</div>
         <div class="seg" id="bots">
           <button id="b1" data-b="1">Compléter à 4</button><button id="b0" data-b="0">Aucun</button>
-        </div>
-        <div class="lbl">Commandes sur téléphone et tablette</div>
+        </div></div>
+        <div class="grp"><div class="lbl">Commandes tactiles</div>
         <div class="seg" id="ctrl">
-          <button data-c="joy">Joystick</button><button data-c="btn">Touches ◀ ▶</button><button data-c="wheel">Volant</button>
+          <button data-c="joy">Joystick</button><button data-c="btn">Touches</button><button data-c="wheel">Volant</button>
         </div>
-        <p class="note" id="ctrlNote"></p>
-        <div class="lbl">Tours</div>
+        <p class="note" id="ctrlNote"></p></div>
+        <div class="grp"><div class="lbl">Tours</div>
         <div class="seg" id="laps">
           <button id="l2" data-l="2">2</button><button id="l3" data-l="3">3</button><button id="l5" data-l="5">5</button>
-        </div>
-        <div class="lbl">Musique de fond</div>
+        </div></div>
+        <div class="grp"><div class="lbl">Musique de fond</div>
         <div class="seg" id="music">
           <button data-m="1">Oui, douce</button><button data-m="0">Non</button>
+        </div></div>
+      </section>
+      <section class="box rise" style="--d:2" data-glow>
+        <div class="lbl">Circuit · 15 quartiers de Lomé</div>
+        <div class="map" id="map">
+          <div class="tilt"><canvas id="mapCv" aria-label="Carte du circuit choisi"></canvas><div class="gloss"></div></div>
+          <span class="count" id="mapCount">01 / 15</span>
+          <div class="info"><span class="k" id="mapK">Circuit</span><b class="nm" id="mapName"></b><span class="ds" id="mapDesc"></span><div class="chips" id="mapChips"></div></div>
+          <button class="mapnav" id="mapPrev" aria-label="Circuit précédent">‹</button><button class="mapnav" id="mapNext" aria-label="Circuit suivant">›</button>
         </div>
-      </div>
-      <div class="box">
-        <div class="lbl">Circuit · 15 quartiers de Lomé, fais défiler</div>
         <div class="tracks" id="tracks"></div>
-      </div>
+      </section>
     </div>
-    <div class="box">
+    <section class="box rise" style="--d:3" data-glow>
       <div class="lbl">Garage</div>
       <div class="garage" id="garage"></div>
-    </div>
-    <button class="go" id="go">C'est parti !</button>
-    <div class="box">
+    </section>
+    <div class="gobar"><button class="go" id="go"><span>C'est parti</span><span class="arr" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span></button></div>
+    <div class="box rise" style="--d:4">
       <details>
         <summary>Comment jouer</summary>
         <p><b>Joystick</b> : pose ton pouce n'importe où dans ta partie d'écran, un joystick apparaît. Pousse-le dans la direction où tu veux aller. Relâche pour freiner.</p>
@@ -216,7 +417,7 @@ body.land #results .result { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1
     <h2>Pause</h2>
     <div class="row2">
       <button class="go" id="resume">Reprendre</button>
-      <button class="ghost" id="quit">Quitter la course</button>
+      <button class="ghost" id="pQuit">Quitter la course</button>
     </div>
   </div>
 </div>
@@ -630,10 +831,19 @@ class World {
     const cv = document.createElement("canvas"), s = Math.min(220 / this.w, 150 / this.h);
     cv.width = Math.ceil(this.w * s) + 12; cv.height = Math.ceil(this.h * s) + 12;
     const c = cv.getContext("2d");
-    c.fillStyle = "rgba(10,8,20,.6)"; rr(c, 0, 0, cv.width, cv.height, 10); c.fill();
-    c.translate(6, 6); c.scale(s, s); c.lineJoin = "round";
-    this.path(c); c.strokeStyle = "#000"; c.lineWidth = 7 / s; c.stroke();
-    this.path(c); c.strokeStyle = "#e6e6ee"; c.lineWidth = 4 / s; c.stroke();
+    // minicarte en verre fumé : arête claire, tracé lumineux aux couleurs du quartier, départ en damier
+    const W = cv.width, H = cv.height, bg = c.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, "rgba(40,48,58,.62)"); bg.addColorStop(1, "rgba(10,13,17,.62)");
+    c.fillStyle = bg; rr(c, 0, 0, W, H, 12); c.fill();
+    const sh = c.createLinearGradient(0, 0, W * .7, H); sh.addColorStop(0, "rgba(255,255,255,.12)"); sh.addColorStop(.5, "rgba(255,255,255,0)"); c.fillStyle = sh; rr(c, 0, 0, W, H, 12); c.fill();
+    c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 1; rr(c, .5, .5, W - 1, H - 1, 12); c.stroke();
+    c.translate(6, 6); c.scale(s, s); c.lineJoin = c.lineCap = "round";
+    const glow = this.th.kerb[0];
+    c.save(); c.shadowColor = glow; c.shadowBlur = 10; this.path(c); c.strokeStyle = glow; c.globalAlpha = .75; c.lineWidth = 6.5 / s; c.stroke(); c.restore();
+    this.path(c); c.strokeStyle = "#151920"; c.lineWidth = 4 / s; c.stroke();
+    this.path(c); c.strokeStyle = "rgba(255,255,255,.7)"; c.lineWidth = 1 / s; c.setLineDash([3 / s, 4 / s]); c.stroke(); c.setLineDash([]);
+    const [x0, y0] = this.S[0], a0 = this.ang[0];
+    c.save(); c.translate(x0, y0); c.rotate(a0); for (let k = -2; k < 2; k++) for (let j = 0; j < 2; j++) { c.fillStyle = (k + j) % 2 ? "#fff" : "#111"; c.fillRect((j - 1) * 2.2 / s, k * 2.2 / s, 2.2 / s, 2.2 / s); } c.restore();
     this.mini = cv; this.miniS = s;
   }
   // Point de piste le plus proche, recherche locale autour de l'indice connu
@@ -891,6 +1101,11 @@ const cfg = { humans: 2, bots: 1, laps: 3, track: 0, cars: [1, 5, 4, 8], ctrl: "
 try { Object.assign(cfg, JSON.parse(localStorage.getItem("turbo-rush-cfg") || "{}")); } catch (e) {}
 cfg.cars = cfg.cars.map(i => i >= 0 && i < CARS.length ? i : 0);
 if (!["joy", "btn", "wheel"].includes(cfg.ctrl)) cfg.ctrl = "joy";
+// réglages enregistrés par une ancienne version : on les ramène dans les valeurs permises
+const okInt = (v, a, b, d) => Number.isInteger(v) && v >= a && v <= b ? v : d;
+cfg.humans = okInt(cfg.humans, 1, 4, 1); cfg.bots = okInt(cfg.bots, 0, 1, 1); cfg.track = okInt(cfg.track, 0, TRACKS.length - 1, 0);
+cfg.laps = [2, 3, 5].includes(cfg.laps) ? cfg.laps : 3;
+while (cfg.cars.length < 4) cfg.cars.push(cfg.cars.length % CARS.length);
 
 class Game {
   constructor(o) {
@@ -1195,9 +1410,18 @@ class Game {
     const w = this.world;
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
     ctx.drawImage(w.mini, 0, 0);
-    for (const c of this.cars) {
-      ctx.fillStyle = c.pi >= 0 ? PCOLORS[c.pi] : "#ffffff"; ctx.strokeStyle = "#000"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(6 + c.x * w.miniS, 6 + c.y * w.miniS, c.pi >= 0 ? 6 : 4, 0, 7); ctx.fill(); ctx.stroke();
+    // adversaires : petites perles ; pilotes : flèche lumineuse dans le sens de la marche
+    for (const c of this.cars) if (c.pi < 0) {
+      ctx.fillStyle = "#EEF2F6"; ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(6 + c.x * w.miniS, 6 + c.y * w.miniS, 3.6, 0, 7); ctx.fill(); ctx.stroke();
+    }
+    for (const c of this.cars) if (c.pi >= 0) {
+      const x = 6 + c.x * w.miniS, y = 6 + c.y * w.miniS, col = PCOLORS[c.pi];
+      ctx.save(); ctx.translate(x, y);
+      ctx.fillStyle = col; ctx.globalAlpha = .28 + .12 * Math.sin(this.t * 6); ctx.beginPath(); ctx.arc(0, 0, 10, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.rotate(c.a); ctx.shadowColor = col; ctx.shadowBlur = 8; ctx.fillStyle = col; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(7.5, 0); ctx.lineTo(-5, 5); ctx.lineTo(-2.5, 0); ctx.lineTo(-5, -5); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -1405,9 +1629,14 @@ class Game {
     }
     if (touchMode && this.humans.length === 1 && this.phase !== "done") {
       const nb = nitroBtn(v), on = nitroTouch.has(pi);
-      ctx.globalAlpha = 0.9; ctx.fillStyle = on ? "#bfe9ff" : car.nitro > 0.15 ? "#2f8cff" : "rgba(47,140,255,.3)";
-      ctx.beginPath(); ctx.arc(nb.x - v.x, nb.y - v.y, nb.r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
-      ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 3; ctx.stroke();
+      // bouton de cristal bleu : anneau de charge autour, reflet en haut
+      const bx = nb.x - v.x, by = nb.y - v.y, ready = car.nitro > 0.15;
+      const gr = ctx.createRadialGradient(bx - nb.r * .3, by - nb.r * .4, nb.r * .1, bx, by, nb.r);
+      gr.addColorStop(0, on ? "#E6F6FF" : ready ? "#7FC0FF" : "rgba(127,192,255,.35)"); gr.addColorStop(1, on ? "#7FC8FF" : ready ? "#1D63C9" : "rgba(29,99,201,.3)");
+      ctx.globalAlpha = 0.92; ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(bx, by, nb.r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(bx, by, nb.r + 4, 0, 7); ctx.stroke();
+      ctx.strokeStyle = "#CFE6FA"; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(bx, by, nb.r + 4, -Math.PI / 2, -Math.PI / 2 + 6.283 * car.nitro); ctx.stroke(); ctx.lineCap = "butt";
+      ctx.fillStyle = "rgba(255,255,255,.28)"; ctx.beginPath(); ctx.ellipse(bx, by - nb.r * .45, nb.r * .62, nb.r * .32, 0, 0, 7); ctx.fill();
       ctx.fillStyle = "#fff"; ctx.font = `800 ${nb.r * 0.55}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N2O", nb.x - v.x, nb.y - v.y + 1);
     }
     {
@@ -2303,7 +2532,15 @@ function ctrlMode() { return (game ? game.humans.length : cfg.humans) > 1 && !bi
 const pads = [0, 1, 2, 3].map(() => ({ L: false, R: false, gas: false, brake: false, wheel: 0, grab: null }));
 const padPtr = new Map(); // doigt -> { pi, role, a0, w0 }
 const nitroTouch = new Map(), nitroPtr = new Map(); // pilote -> doigt sur le bouton N2O
-function nitroBtn(v) { const b = itemBtn(v), r = b.r * 0.72; return { x: b.x - b.r - r - 10, y: b.y + b.r - r, r }; }
+// bouton N2O : à gauche, juste au-dessus de la direction (le pouce droit reste sur les pédales)
+function nitroBtn(v) {
+  const r = clamp(Math.min(v.w, v.h) * 0.095, 28, 40), m = 14 * clamp(Math.min(v.w, v.h) / 380, 0.62, 1.15) + 4;
+  let top;
+  if (ctrlMode() === "btn") top = padLayout(v).left.y;
+  else if (ctrlMode() === "wheel") { const P = padLayout(v); top = P.wheel.y - P.wheel.r; }
+  else top = v.y + v.h - 70 - STICK_R;
+  return { x: v.x + m + r + 4, y: Math.max(v.y + v.h * 0.4 + r, top - r - 16), r };
+}
 // emplacement des touches, pédales et volant dans la vue d'un pilote
 function padLayout(v) {
   const s = clamp(Math.min(v.w, v.h) / 380, 0.62, 1.15), m = 14 * s + 4;
@@ -2451,25 +2688,210 @@ function readInput(car, g) {
 // =====================================================================
 const $ = id => document.getElementById(id);
 function saveCfg() { try { localStorage.setItem("turbo-rush-cfg", JSON.stringify(cfg)); } catch (e) {} }
-function previewTrack(canvas, th) {
-  canvas.width = 240; canvas.height = 120;
-  const c = canvas.getContext("2d"), pts = catmull(th.pts, 8);
-  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-  const s = Math.min(200 / (Math.max(...xs) - Math.min(...xs)), 90 / (Math.max(...ys) - Math.min(...ys)));
-  const ox = (240 - (Math.max(...xs) - Math.min(...xs)) * s) / 2, oy = (120 - (Math.max(...ys) - Math.min(...ys)) * s) / 2;
-  c.fillStyle = th.wall; c.fillRect(0, 0, 240, 120);
-  c.lineJoin = "round";
-  const path = () => { c.beginPath(); pts.forEach(([x, y]) => c.lineTo((x - Math.min(...xs)) * s + ox, (y - Math.min(...ys)) * s + oy)); c.closePath(); };
-  path(); c.strokeStyle = th.off; c.lineWidth = 14; c.stroke();
-  path(); c.strokeStyle = th.kerb[0]; c.lineWidth = 8; c.stroke();
-  path(); c.strokeStyle = th.road; c.lineWidth = 6; c.stroke();
-  if (th.night) { c.fillStyle = "rgba(0,0,30,.4)"; c.fillRect(0, 0, 240, 120); }
-}
 function previewCar(canvas, model) {
   canvas.width = 128; canvas.height = 72;
   const c = canvas.getContext("2d"); c.clearRect(0, 0, 128, 72);
   c.translate(64, 36); c.scale(1.7, 1.7); drawCarShape(c, CARS[model], CARS[model].color, CARS[model].accent);
 }
+// =====================================================================
+// Menu « cristal » : carte animée du circuit, pastilles qui glissent, reflets, petits sons de verre
+// =====================================================================
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// géométrie de chaque circuit, calculée une fois : tracé normalisé, longueur réelle et nombre de virages
+const TGEO = TRACKS.map(th => {
+  const P = resample(catmull(th.pts), 12), N = P.length;
+  let len = 0; for (let i = 0; i < N; i++) len += Math.hypot(P[(i + 1) % N][0] - P[i][0], P[(i + 1) % N][1] - P[i][1]);
+  const xs = P.map(p => p[0]), ys = P.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = Math.max(...xs) - x0, h = Math.max(...ys) - y0;
+  // un virage = un endroit où la piste tourne nettement sur une courte distance
+  const ang = P.map((p, i) => Math.atan2(P[(i + 3) % N][1] - p[1], P[(i + 3) % N][0] - p[0]));
+  let turns = 0, inTurn = false;
+  for (let i = 0; i < N; i++) { const d = Math.abs(angDiff(ang[i], ang[(i + 20) % N])); if (d > 0.5 && !inTurn) { turns++; inTurn = true; } else if (d < 0.2) inTurn = false; }
+  return { pts: P.filter((_, i) => i % 3 === 0).map(([x, y]) => [(x - x0) / w, (y - y0) / h]), ar: w / h, km: len * 0.4 / 3600, turns: Math.max(3, turns) };
+});
+const DECO_FR = { trees: "Verdure", desert: "Latérite", city: "Ville", ice: "Glace", palms: "Bord de mer" };
+// ajuste le tracé normalisé dans un rectangle, en gardant les proportions
+function fitPath(g, W, H, pad) {
+  const s = Math.min((W - pad * 2) / g.ar, H - pad * 2), w = s * g.ar;
+  const ox = (W - w) / 2, oy = (H - s) / 2;
+  return g.pts.map(([x, y]) => [ox + x * w, oy + y * s]);
+}
+function strokePath(c, P) { c.beginPath(); P.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); }
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+
+// vignette d'un circuit : verre sombre teinté, tracé lumineux, ligne de départ
+function previewTrack(canvas, th) {
+  const i = TRACKS.indexOf(th), g = TGEO[i], k = 2, W = 240, H = 138;
+  canvas.width = W * k; canvas.height = H * k;
+  const c = canvas.getContext("2d"); c.scale(k, k);
+  const bg = c.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, hexA(th.off, th.night ? .35 : .55)); bg.addColorStop(1, "#0C1015"); c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  c.strokeStyle = "rgba(255,255,255,.05)"; c.lineWidth = 1;
+  for (let x = 12; x < W; x += 16) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  for (let y = 10; y < H; y += 16) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  const P = fitPath(g, W, H, 16); c.lineJoin = c.lineCap = "round";
+  c.save(); c.shadowColor = hexA(th.kerb[0], .9); c.shadowBlur = 14; strokePath(c, P); c.strokeStyle = hexA(th.kerb[0], .8); c.lineWidth = 7; c.stroke(); c.restore();
+  strokePath(c, P); c.strokeStyle = "#14181E"; c.lineWidth = 4.5; c.stroke();
+  strokePath(c, P); c.strokeStyle = "rgba(255,255,255,.85)"; c.lineWidth = 1; c.setLineDash([3, 4]); c.stroke(); c.setLineDash([]);
+  const [sx, sy] = P[0]; c.fillStyle = "#fff"; c.shadowColor = "#fff"; c.shadowBlur = 8; c.beginPath(); c.arc(sx, sy, 3.2, 0, 7); c.fill(); c.shadowBlur = 0;
+  const sh = c.createLinearGradient(0, 0, W * .6, H); sh.addColorStop(0, "rgba(255,255,255,.14)"); sh.addColorStop(.45, "rgba(255,255,255,0)"); c.fillStyle = sh; c.fillRect(0, 0, W, H);
+}
+
+// grande carte du circuit choisi : le tracé se dessine, quatre bolides lumineux en font le tour
+const MAP = { i: -1, t0: 0, cv: null, ctx: null, W: 0, H: 0, P: null, L: null, len: 0, from: 0 };
+function mapResize() {
+  const cv = MAP.cv || (MAP.cv = $("mapCv")); if (!cv) return;
+  const r = cv.getBoundingClientRect(); if (!r.width) return;
+  const k = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(r.width * k); cv.height = Math.round(r.height * k); MAP.ctx = cv.getContext("2d"); MAP.ctx.setTransform(k, 0, 0, k, 0, 0);
+  MAP.W = r.width; MAP.H = r.height; MAP.i = -1; MAP.stillI = -1;
+}
+function mapSet(i) {
+  const g = TGEO[i]; MAP.P = fitPath(g, MAP.W, MAP.H, Math.max(26, MAP.H * 0.14));
+  MAP.L = [0]; for (let k = 1; k <= MAP.P.length; k++) { const a = MAP.P[k - 1], b = MAP.P[k % MAP.P.length]; MAP.L.push(MAP.L[k - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  MAP.len = MAP.L[MAP.L.length - 1]; MAP.i = i; MAP.t0 = performance.now(); MAP.stillI = -1;
+}
+function mapAt(u) { // point à la fraction u du tour
+  const d = ((u % 1) + 1) % 1 * MAP.len, L = MAP.L, P = MAP.P;
+  let lo = 0, hi = L.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (L[m] <= d) lo = m; else hi = m; }
+  const a = P[lo % P.length], b = P[(lo + 1) % P.length], f = (d - L[lo]) / ((L[lo + 1] - L[lo]) || 1);
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+}
+function drawMap(now) {
+  if (!MAP.ctx || !MAP.W) mapResize(); if (!MAP.ctx || !MAP.W) return;
+  if (MAP.i !== cfg.track) mapSet(cfg.track);
+  const W = MAP.W, H = MAP.H, th = TRACKS[cfg.track], t = (now - MAP.t0) / 1000;
+  const rev = REDUCE ? 1 : Math.min(1, t / 0.9), ease = 1 - Math.pow(1 - rev, 3);
+  // une fois le tracé dessiné, le décor est gardé en mémoire : chaque image ne redessine que la ligne qui défile et les bolides
+  if (ease >= 1 && MAP.still && MAP.stillI === cfg.track) { MAP.ctx.drawImage(MAP.still, 0, 0, W, H); mapLive(MAP.ctx, now, t); return; }
+  let c = MAP.ctx, cache = null;
+  if (ease >= 1) { cache = MAP.still || (MAP.still = document.createElement("canvas")); cache.width = MAP.cv.width; cache.height = MAP.cv.height; c = cache.getContext("2d"); c.setTransform(MAP.cv.width / W, 0, 0, MAP.cv.height / H, 0, 0); }
+  // fond : verre teinté aux couleurs du quartier, quadrillage de carte, halo
+  const bg = c.createLinearGradient(0, 0, W, H); bg.addColorStop(0, hexA(th.off, th.night ? .28 : .42)); bg.addColorStop(.55, "#0D1218"); bg.addColorStop(1, "#090C10");
+  c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  const halo = c.createRadialGradient(W * .5, H * .5, 0, W * .5, H * .5, Math.max(W, H) * .6); halo.addColorStop(0, hexA(th.kerb[0], .16)); halo.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = halo; c.fillRect(0, 0, W, H);
+  c.lineWidth = 1; const gs = 22, drift = 0;
+  for (let x = -gs + drift; x < W; x += gs) { c.strokeStyle = "rgba(255,255,255,.045)"; c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  for (let y = -gs + drift * .5; y < H; y += gs) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  const P = MAP.P; c.lineJoin = c.lineCap = "round";
+  c.setLineDash([MAP.len * ease, MAP.len]);
+  c.save(); c.shadowColor = "rgba(0,0,0,.7)"; c.shadowBlur = 18; c.shadowOffsetY = 8; strokePath(c, P); c.strokeStyle = "rgba(0,0,0,.6)"; c.lineWidth = 15; c.stroke(); c.restore();
+  c.save(); c.shadowColor = hexA(th.kerb[0], 1); c.shadowBlur = 22; strokePath(c, P); c.strokeStyle = hexA(th.kerb[0], .85); c.lineWidth = 11; c.stroke(); c.restore();
+  strokePath(c, P); c.strokeStyle = hexA(th.kerb[1], .55); c.lineWidth = 11; c.setLineDash([7, 7]); c.lineDashOffset = 0; if (ease >= 1) c.stroke();
+  c.setLineDash([MAP.len * ease, MAP.len]); strokePath(c, P); c.strokeStyle = "#171B22"; c.lineWidth = 8; c.stroke();
+  c.setLineDash([]); c.lineDashOffset = 0;
+  // ligne de départ en damier
+  const [ax, ay] = P[0], [bx, by] = P[1], an = Math.atan2(by - ay, bx - ax);
+  c.save(); c.translate(ax, ay); c.rotate(an); for (let k = -3; k < 3; k++) for (let j = 0; j < 2; j++) { c.fillStyle = (k + j) % 2 ? "#fff" : "#111"; c.fillRect(j * 3 - 3, k * 2.4, 3, 2.4); } c.restore();
+  if (cache) { MAP.stillI = cfg.track; MAP.ctx.drawImage(cache, 0, 0, W, H); mapLive(MAP.ctx, now, t); return; }
+  // balayage de lumière quand on change de circuit
+  if (rev < 1) { const x = W * (rev * 1.6 - .3), gl = c.createLinearGradient(x - 80, 0, x + 80, 0); gl.addColorStop(0, "rgba(255,255,255,0)"); gl.addColorStop(.5, "rgba(255,255,255,.18)"); gl.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = gl; c.fillRect(0, 0, W, H); }
+}
+function mapLive(c, now, t) {
+  const P = MAP.P; c.lineJoin = c.lineCap = "round";
+  // ligne centrale qui défile, comme de la vitesse
+  strokePath(c, P); c.strokeStyle = "rgba(255,255,255,.5)"; c.lineWidth = 1.2; c.setLineDash([6, 9]); c.lineDashOffset = REDUCE ? 0 : -now / 40; c.stroke(); c.setLineDash([]); c.lineDashOffset = 0;
+  // quatre bolides : traînée lumineuse puis tête brillante
+  {
+    const base = REDUCE ? 0 : t * 0.075;
+    PCOLORS.forEach((col, n) => {
+      const u = base - n * 0.035 + Math.sin(t * 0.7 + n) * 0.004;
+      for (let k = 14; k >= 1; k--) { const [x, y] = mapAt(u - k * 0.0028); c.fillStyle = hexA(col, (1 - k / 15) * 0.5); c.beginPath(); c.arc(x, y, 3.2 * (1 - k / 20), 0, 7); c.fill(); }
+      const [x, y] = mapAt(u); c.save(); c.shadowColor = col; c.shadowBlur = 14; c.fillStyle = "#fff"; c.beginPath(); c.arc(x, y, n ? 3.4 : 4.4, 0, 7); c.fill(); c.restore();
+      c.strokeStyle = col; c.lineWidth = 2; c.beginPath(); c.arc(x, y, n ? 4.6 : 6, 0, 7); c.stroke();
+    });
+  }
+}
+function mapInfo() {
+  const i = cfg.track, th = TRACKS[i], g = TGEO[i];
+  $("mapCount").textContent = String(i + 1).padStart(2, "0") + " / " + TRACKS.length;
+  $("mapK").textContent = `Circuit ${String(i + 1).padStart(2, "0")}`;
+  $("mapName").textContent = th.name; $("mapDesc").textContent = th.desc;
+  const chips = [[g.km.toFixed(1).replace(".", ",") + " km", 0], [g.turns + " virages", 0], th.night ? ["Nuit", 1] : ["Jour", 0], th.ice ? ["Glace", 1] : [DECO_FR[th.deco] || "Asphalte", 0]];
+  $("mapChips").innerHTML = chips.map(([t, hot]) => `<span class="chip${hot ? " hot" : ""}">${t}</span>`).join("");
+}
+function pickTrack(i, scroll) {
+  cfg.track = (i + TRACKS.length) % TRACKS.length; saveCfg(); renderMenu();
+  if (scroll) { const b = $("track" + cfg.track); if (b) b.scrollIntoView({ block: "nearest", behavior: REDUCE ? "auto" : "smooth" }); }
+}
+
+// pastille de cristal : elle glisse sous le bouton choisi
+function placeThumbs() {
+  document.querySelectorAll(".seg").forEach(seg => {
+    let th = seg.querySelector(".thumb"); if (!th) { th = document.createElement("span"); th.className = "thumb"; seg.prepend(th); }
+    const on = seg.querySelector('button[aria-pressed="true"]');
+    if (!on || !on.offsetWidth) { th.style.opacity = 0; return; }
+    th.style.opacity = 1; th.style.width = on.offsetWidth + "px"; th.style.height = on.offsetHeight + "px";
+    th.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop}px)`;
+  });
+}
+
+// son de verre très doux au toucher, et petite vibration sur Android
+function tink(hi) {
+  if (!AC || AC.state !== "running") return;
+  try {
+    const t = AC.currentTime, out = AC.createGain(); out.gain.value = 0.05; out.connect(AC.destination);
+    for (const [f, a, d] of [[hi ? 2637 : 2093, 1, 0.22], [hi ? 3951 : 3136, 0.45, 0.14], [hi ? 5274 : 4186, 0.2, 0.09]]) {
+      const o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.02);
+    }
+    setTimeout(() => { try { out.disconnect(); } catch (e) {} }, 400);
+  } catch (e) {}
+}
+function menuFeel() {
+  const menu = $("menu");
+  // reflet qui suit le doigt sur les panneaux
+  menu.addEventListener("pointermove", e => {
+    const box = e.target.closest && e.target.closest("[data-glow]"); if (!box) return;
+    const r = box.getBoundingClientRect(); box.style.setProperty("--mx", (e.clientX - r.left) + "px"); box.style.setProperty("--my", (e.clientY - r.top) + "px"); box.classList.add("lit");
+  });
+  menu.addEventListener("pointerout", e => { const box = e.target.closest && e.target.closest("[data-glow]"); if (box && !box.contains(e.relatedTarget)) box.classList.remove("lit"); });
+  // ondulation de lumière, son et vibration au toucher des boutons
+  document.addEventListener("pointerdown", e => {
+    const b = e.target.closest && e.target.closest(".screen button, .screen .cta-btn, .screen .cta-map"); if (!b || b.disabled) return;
+    const r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2, s = document.createElement("span");
+    s.className = "rip"; s.style.cssText = `left:${e.clientX - r.left}px;top:${e.clientY - r.top}px;width:${d}px;height:${d}px`;
+    if (getComputedStyle(b).position === "static") b.style.position = "relative";
+    b.appendChild(s); s.addEventListener("animationend", () => s.remove()); setTimeout(() => s.remove(), 900);
+    tink(b.classList.contains("go") || b.classList.contains("cta-btn"));
+    try { if (navigator.vibrate) navigator.vibrate(b.classList.contains("go") ? 18 : 6); } catch (_) {}
+  }, true);
+  // carte : on peut la faire glisser du doigt pour changer de circuit, et elle s'incline sous la souris
+  const map = $("map"); let sx = null, sy = 0;
+  map.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; sx = e.clientX; sy = e.clientY; });
+  map.addEventListener("pointerup", e => { if (sx === null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null; if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) { tink(false); pickTrack(cfg.track + (dx < 0 ? 1 : -1), true); } });
+  map.addEventListener("pointermove", e => { if (e.pointerType !== "mouse" || REDUCE) return; const r = map.getBoundingClientRect(); map.style.setProperty("--ry", ((e.clientX - r.left) / r.width - .5) * 8 + "deg"); map.style.setProperty("--rx", -((e.clientY - r.top) / r.height - .5) * 6 + "deg"); });
+  map.addEventListener("pointerleave", () => { map.style.setProperty("--rx", "0deg"); map.style.setProperty("--ry", "0deg"); });
+  $("mapPrev").onclick = () => pickTrack(cfg.track - 1, true);
+  $("mapNext").onclick = () => pickTrack(cfg.track + 1, true);
+  window.addEventListener("resize", () => { mapResize(); placeThumbs(); FX.size(); });
+  if (window.ResizeObserver) new ResizeObserver(() => { mapResize(); placeThumbs(); }).observe(map);
+}
+
+// fond du menu : fines traînées de lumière qui filent, comme des phares vus de loin
+const FX = {
+  cv: null, c: null, W: 0, H: 0, s: [],
+  size() { const cv = this.cv || (this.cv = $("menuFx")); if (!cv) return; const k = Math.min(1.5, window.devicePixelRatio || 1); this.W = innerWidth; this.H = innerHeight; cv.width = this.W * k; cv.height = this.H * k; this.c = cv.getContext("2d"); this.c.setTransform(k, 0, 0, k, 0, 0); },
+  draw(dt) {
+    if (!this.c) this.size(); const c = this.c, W = this.W, H = this.H; if (!c) return;
+    c.clearRect(0, 0, W, H);
+    if (this.s.length < 22 && Math.random() < 0.25) this.s.push({ x: -200, y: Math.random() * H * 1.4 - H * 0.2, v: 380 + Math.random() * 520, l: 80 + Math.random() * 220, w: 0.6 + Math.random() * 1.4, col: Math.random() < 0.3 ? "232,120,78" : Math.random() < 0.5 ? "111,174,230" : "235,242,250", a: 0.15 + Math.random() * 0.35 });
+    const k = Math.tan(-0.18);
+    this.s = this.s.filter(p => {
+      p.x += p.v * dt; p.y += p.v * dt * k;
+      const g = c.createLinearGradient(p.x - p.l, p.y - p.l * k, p.x, p.y); g.addColorStop(0, `rgba(${p.col},0)`); g.addColorStop(1, `rgba(${p.col},${p.a})`);
+      c.strokeStyle = g; c.lineWidth = p.w; c.lineCap = "round"; c.beginPath(); c.moveTo(p.x - p.l, p.y - p.l * k); c.lineTo(p.x, p.y); c.stroke();
+      return p.x - p.l < W + 40;
+    });
+  },
+};
+let menuLast = 0;
+function menuFrame(now) { // appelée par la boucle principale tant que le menu est affiché
+  const dt = Math.min(0.05, (now - (menuLast || now)) / 1000); menuLast = now;
+  try { drawMap(now); if (!REDUCE) FX.draw(dt); } catch (e) {}
+}
+
 function renderMenu() {
   document.querySelectorAll("#humans button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.n === cfg.humans));
   document.querySelectorAll("#bots button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.b === cfg.bots));
@@ -2482,20 +2904,31 @@ function renderMenu() {
   for (let p = 0; p < cfg.humans; p++) {
     const m = CARS[cfg.cars[p]], row = document.createElement("div");
     row.className = "pilot";
-    row.innerHTML = `<span class="n" style="color:${PCOLORS[p]}">J${p + 1}</span><canvas></canvas><span class="m"><b>${m.name}</b><span>Vitesse ${Math.round(m.vmax / 6.2)} · Maniabilité ${Math.round(m.turn * 23)}</span></span><button class="arrow" id="prev${p}" aria-label="Véhicule précédent">◀</button><button class="arrow" id="next${p}" aria-label="Véhicule suivant">▶</button>`;
+    const pc = (v, a, b) => Math.round(35 + 65 * clamp((v - a) / (b - a), 0, 1)) + "%";
+    row.innerHTML = `<span class="n" style="color:${PCOLORS[p]}">J${p + 1}</span><canvas></canvas><span class="m"><b>${m.name}</b>`
+      + `<span class="stats"><i>Vitesse</i><span class="bar"><span style="--w:${pc(m.vmax, 480, 560)}"></span></span>`
+      + `<i>Accél.</i><span class="bar a"><span style="--w:${pc(m.accel, 340, 470)}"></span></span>`
+      + `<i>Tenue</i><span class="bar t"><span style="--w:${pc(m.turn, 2.8, 3.9)}"></span></span></span></span>`
+      + `<button class="arrow" id="prev${p}" aria-label="Véhicule précédent">‹</button><button class="arrow" id="next${p}" aria-label="Véhicule suivant">›</button>`;
     g.appendChild(row);
-    previewCar(row.querySelector("canvas"), cfg.cars[p]);
-    row.querySelector(`#prev${p}`).onclick = () => { cfg.cars[p] = (cfg.cars[p] + CARS.length - 1) % CARS.length; saveCfg(); renderMenu(); };
-    row.querySelector(`#next${p}`).onclick = () => { cfg.cars[p] = (cfg.cars[p] + 1) % CARS.length; saveCfg(); renderMenu(); };
+    const pcv = row.querySelector("canvas"); previewCar(pcv, cfg.cars[p]);
+    if (carSwap && carSwap.p === p && !REDUCE) { pcv.style.setProperty("--from", carSwap.d * 34 + "px"); pcv.classList.add("swap"); }
+    // les barres partent de zéro puis se remplissent
+    const bars = row.querySelectorAll(".bar > span"); bars.forEach(b => { const w = b.style.getPropertyValue("--w"); b.style.setProperty("--w", carSwap && carSwap.p === p ? "0%" : w); requestAnimationFrame(() => requestAnimationFrame(() => b.style.setProperty("--w", w))); });
+    row.querySelector(`#prev${p}`).onclick = () => { cfg.cars[p] = (cfg.cars[p] + CARS.length - 1) % CARS.length; saveCfg(); carSwap = { p, d: -1 }; renderMenu(); };
+    row.querySelector(`#next${p}`).onclick = () => { cfg.cars[p] = (cfg.cars[p] + 1) % CARS.length; saveCfg(); carSwap = { p, d: 1 }; renderMenu(); };
   }
+  carSwap = null;
+  mapInfo(); requestAnimationFrame(placeThumbs);
 }
+let carSwap = null;
 function buildMenu() {
   const tr = $("tracks");
   TRACKS.forEach((th, i) => {
     const b = document.createElement("button"); b.id = "track" + i;
     b.innerHTML = `<canvas></canvas><b>${th.name}</b><span>${th.desc}</span>`;
     previewTrack(b.querySelector("canvas"), th);
-    b.onclick = () => { cfg.track = i; saveCfg(); renderMenu(); };
+    b.onclick = () => pickTrack(i, false);
     tr.appendChild(b);
   });
   document.querySelectorAll("#humans button").forEach(b => b.onclick = () => { cfg.humans = +b.dataset.n; saveCfg(); renderMenu(); });
@@ -2512,8 +2945,10 @@ function buildMenu() {
   for (const id of ["ctaSite", "ctaMap"]) $(id).addEventListener("click", ev => { ev.preventDefault(); let w = null; try { w = window.open($(id).href, "_blank"); if (w) w.opener = null; } catch (e) {} if (!w) location.href = $(id).href; });
   $("pauseBtn").onclick = () => togglePause(true);
   $("resume").onclick = () => togglePause(false);
-  $("quit").onclick = () => { togglePause(false); toMenu(); };
+  $("pQuit").onclick = () => { togglePause(false); toMenu(); };
+  menuFeel(); FX.size();
   renderMenu();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeThumbs);
 }
 function startRace() {
   audioOn();
@@ -2527,7 +2962,7 @@ function startRace() {
   SND.start(game.humans.length);
   $("menu").hidden = true; $("results").hidden = true; $("pause").hidden = true; $("pauseBtn").hidden = false;
 }
-function toMenu() { SND.stop(); if (game && game.r3) game.r3.dispose(); cv3.hidden = true; game = null; resize(); $("results").hidden = true; $("pauseBtn").hidden = true; $("menu").hidden = false; renderMenu(); }
+function toMenu() { SND.stop(); if (game && game.r3) game.r3.dispose(); cv3.hidden = true; game = null; resize(); $("results").hidden = true; $("pauseBtn").hidden = true; $("menu").hidden = false; renderMenu(); mapResize(); }
 function togglePause(on) { if (!game) return; game.paused = on; if (game) SND.update(game); $("pause").hidden = !on; }
 function showResults() {
   const order = game.order();
@@ -2539,9 +2974,12 @@ function showResults() {
 }
 
 let last = performance.now(), acc = 0;
+let frameErr = 0;
 function frame(now) {
+  requestAnimationFrame(frame); // toujours reprogrammée d'abord : une erreur ponctuelle ne fige jamais le jeu
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
-  if (game) {
+  if (!game && !$("menu").hidden) menuFrame(now);
+  if (game) try {
     acc += dt;
     let n = 0;
     while (acc >= 1 / 60 && n < 5) { game.step(1 / 60); acc -= 1 / 60; n++; }
@@ -2553,9 +2991,24 @@ function frame(now) {
     for (const [c, x, y, a] of saved) { c.x = x; c.y = y; c.a = a; }
     SND.update(game);
     if (game.phase === "race" && !game.paused) adaptQuality(dt);
+  } catch (e) {
+    if (frameErr++ < 5) console.error("image ignorée", e);
+    // une voiture aux coordonnées invalides est replacée sur la piste au lieu de bloquer la course
+    if (game) for (const c of game.cars) if (!["x", "y", "vx", "vy", "a", "speed"].every(k => Number.isFinite(c[k]))) {
+      try { const p = game.world.at(Number.isInteger(c.idx) ? c.idx : 0, 0, {}); Object.assign(c, { x: p.x, y: p.y, a: p.a, px: p.x, py: p.y, pa: p.a, vx: 0, vy: 0, speed: 0, inv: 1.2 }); } catch (e2) {}
+    }
   }
-  requestAnimationFrame(frame);
 }
+// appli en arrière-plan (appel, notification, verrouillage) : la course se met en pause toute seule
+document.addEventListener("visibilitychange", () => { if (document.hidden && game && !game.paused && game.phase !== "done") togglePause(true); });
+// le téléphone peut retirer l'écran 3D à la page (mémoire pleine) : on le reconstruit dès qu'il revient
+cv3.addEventListener("webglcontextlost", e => { e.preventDefault(); if (game && game.phase !== "done") togglePause(true); });
+cv3.addEventListener("webglcontextrestored", () => {
+  if (!game || !game.r3) return;
+  try { game.r3.dispose(); game.r3 = new Scene3D(game); }
+  catch (e) { game.r3 = null; cv3.hidden = true; game.world.buildTexture(); }
+  resize();
+});
 buildMenu(); resize(); requestAnimationFrame(frame);
 // Accès pour les tests automatiques
 window.__TR = { cfg, start: startRace, get game() { return game; }, sticks, AI, pads, layout: padLayout, ctrlMode };
