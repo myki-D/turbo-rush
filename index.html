@@ -136,6 +136,10 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
         <div class="seg" id="laps">
           <button id="l2" data-l="2">2</button><button id="l3" data-l="3">3</button><button id="l5" data-l="5">5</button>
         </div>
+        <div class="lbl">Musique de fond</div>
+        <div class="seg" id="music">
+          <button data-m="1">Oui, douce</button><button data-m="0">Non</button>
+        </div>
       </div>
       <div class="box">
         <div class="lbl">Circuit · 15 quartiers de Lomé, fais défiler</div>
@@ -618,7 +622,7 @@ class Car {
     this.idx = 0; this.lap = 0; this.cp = 1; this.progress = 0; this.finished = false; this.ftime = null;
     this.item = null; this.roll = 0; this.coins = 0;
     this.spin = 0; this.shield = 0; this.star = 0; this.boost = 0; this.shrink = 0; this.slide = 0; this.inv = 0;
-    this.throttle = 0; this.brake = false; this.steer = 0; this.drift = false; this.nitro = 0.35; this.nitroOn = false; this.gear = 0; this.shift = 0; this.rpm = 0.25;
+    this.throttle = 0; this.brake = false; this.steer = 0; this.drift = false; this.nitro = 0.35; this.nitroOn = false; this.gear = 0; this.shift = 0; this.rpm = 0.25; this.pwV = 1; this.pwA = 1;
     this.ai = null; this.skid = null; this.lapStart = 0; this.bestLap = null; this.wrong = 0;
   }
   get scale() { return this.shrink > 0 ? 0.6 : 1; }
@@ -630,7 +634,7 @@ class Car {
     let vf = this.vx * fx + this.vy * fy, vr = this.vx * rx + this.vy * ry;
     const d = w.locate(this);
     const terrain = d < R + KERB ? "road" : "off";
-    let vmax = m.vmax * (1 + this.coins * 0.02), acc = m.accel, grip = m.grip;
+    let vmax = m.vmax * (1 + this.coins * 0.02) * this.pwV, acc = m.accel * this.pwA, grip = m.grip;
     if (terrain === "off") { vmax *= 0.55; grip *= 0.85; vf -= vf * 0.6 * dt; }
     else if (w.th.ice) { grip *= 0.3; acc *= 0.8; }
     const bi = w.boosts.find(i => ((this.idx - i + w.N) % w.N) < 9);
@@ -648,13 +652,13 @@ class Car {
       this.spin -= dt; this.a += 11 * dt; vf -= vf * 2.5 * dt; vr -= vr * 2.5 * dt;
     } else {
       // moteur et boîte : la poussée dépend du rapport engagé et du régime, avec une courte coupure à chaque passage
-      const vb = m.vmax * (1 + this.coins * 0.02), gt = GEAR_TOP.map(f => f * vb * 1.02);
+      const vb = m.vmax * (1 + this.coins * 0.02) * this.pwV, gt = GEAR_TOP.map(f => f * vb * 1.02);
       if (this.shift > 0) this.shift -= dt;
       else if (this.gear < 5 && vf > gt[this.gear] * 0.97) { this.gear++; this.shift = 0.2; }
       else if (this.gear > 0 && vf < gt[this.gear - 1] * 0.62) this.gear--;
       const g = this.gear, lo = g ? gt[g - 1] * 0.6 : 0, r = clamp((vf - lo) / (gt[g] - lo), 0, 1);
       this.rpm += (0.25 + 0.75 * clamp(vf / gt[g], 0, 1.04) - this.rpm) * Math.min(1, dt * 12);
-      const drive = acc * 0.4 * Math.pow(GEAR_TOP[0] / GEAR_TOP[g], 0.62) * (0.72 + 0.55 * r - 0.45 * r * r);
+      const drive = acc * 0.46 * Math.pow(GEAR_TOP[0] / GEAR_TOP[g], 0.62) * (0.72 + 0.55 * r - 0.45 * r * r);
       if (this.throttle > 0 && this.shift <= 0 && vf >= 0) vf += drive * this.throttle * dt;
       else if (this.throttle > 0 && vf < 0) vf += acc * 0.8 * dt;
       if (this.brake) { if (vf > 30) vf -= (240 + 0.4 * vf) * dt; else if (vf > -vmax * 0.3) vf -= acc * 0.3 * dt; }
@@ -671,7 +675,7 @@ class Car {
     vr *= Math.exp(-grip * dt);
     this.vx = vf * fx + vr * rx; this.vy = vf * fy + vr * ry;
     this.speed = Math.hypot(this.vx, this.vy);
-    this.drifting = Math.abs(vr) > 80 && this.speed > 140;
+    this.drifting = Math.abs(vr) > 80 && this.speed > 140; this.slip = Math.abs(vr);
     this.onRoad = terrain === "road";
     this.x += this.vx * dt; this.y += this.vy * dt;
     if (w.wall(this, this.rad, 0.15)) {
@@ -780,7 +784,7 @@ function resize() {
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", () => setTimeout(resize, 120));
 
-const cfg = { humans: 2, bots: 1, laps: 3, track: 0, cars: [1, 5, 4, 8], ctrl: "joy" };
+const cfg = { humans: 2, bots: 1, laps: 3, track: 0, cars: [1, 5, 4, 8], ctrl: "joy", music: true };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem("turbo-rush-cfg") || "{}")); } catch (e) {}
 cfg.cars = cfg.cars.map(i => i >= 0 && i < CARS.length ? i : 0);
 if (!["joy", "btn", "wheel"].includes(cfg.ctrl)) cfg.ctrl = "joy";
@@ -804,7 +808,11 @@ class Game {
       // les humains partent derrière, les ordinateurs devant
       const slot = total - 1 - k, human = slot < o.humans;
       let car;
-      if (human) car = new Car(o.cars[slot], p.x, p.y, p.a, "J" + (slot + 1), slot);
+      if (human) {
+        car = new Car(o.cars[slot], p.x, p.y, p.a, "J" + (slot + 1), slot);
+        // les joueurs ont un peu plus de puissance que l'ordinateur : nettement en solo, à égalité entre eux à plusieurs
+        if (o.humans === 1) { car.pwV = 1.07; car.pwA = 1.15; } else { car.pwV = 1.04; car.pwA = 1.08; }
+      }
       else { car = new Car(others[k % others.length], p.x, p.y, p.a, names[k], -1); car.ai = new AI([0.97, 0.93, 0.9, 0.95][k], rnd(-35, 35)); }
       car.idx = i; this.cars.push(car);
     }
@@ -2004,29 +2012,92 @@ class Scene3D {
 // =====================================================================
 // Sons d'ambiance : foule (bruit filtré) et moteurs des pilotes
 // =====================================================================
+// Ambiance sonore : moteur en plusieurs couches (combustion, échappement, admission, boîte), pneus, vent,
+// rivaux qui passent, foule, et une musique de fond composée à la volée (aucun fichier, aucune musique copiée)
 const SND = {
   nodes: null,
   start(n) {
     if (!AC || this.nodes) return;
     try {
-      const len = AC.sampleRate * 2, buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0);
+      const sr = AC.sampleRate, len = sr * 2, srcs = [];
+      const white = AC.createBuffer(1, len, sr), wd = white.getChannelData(0);
+      for (let i = 0; i < len; i++) wd[i] = Math.random() * 2 - 1;
+      const buf = AC.createBuffer(1, len, sr), d = buf.getChannelData(0);
       let b0 = 0, b1 = 0, b2 = 0; // bruit rose : plus proche d'une foule qu'un souffle blanc
-      for (let i = 0; i < len; i++) { const wn = Math.random() * 2 - 1; b0 = .99765 * b0 + wn * .099046; b1 = .963 * b1 + wn * .2965; b2 = .57 * b2 + wn * 1.0526; d[i] = (b0 + b1 + b2 + wn * .1848) * .22; }
-      const layer = (f, q) => {
-        const s = AC.createBufferSource(); s.buffer = buf; s.loop = true;
-        const bp = AC.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f; bp.Q.value = q;
-        const g = AC.createGain(); g.gain.value = 0; s.connect(bp); bp.connect(g); g.connect(AC.destination); s.start(0, Math.random() * 1.5);
+      for (let i = 0; i < len; i++) { const wn = wd[i]; b0 = .99765 * b0 + wn * .099046; b1 = .963 * b1 + wn * .2965; b2 = .57 * b2 + wn * 1.0526; d[i] = (b0 + b1 + b2 + wn * .1848) * .22; }
+      // bus : effets -> compresseur -> haut-parleurs ; la musique a son propre volume, doux
+      const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.2;
+      const master = AC.createGain(); master.gain.value = 0; master.gain.setTargetAtTime(1, AC.currentTime, 0.15);
+      comp.connect(master); master.connect(AC.destination);
+      const fx = AC.createGain(); fx.gain.value = 1; fx.connect(comp);
+      const noise = (b, f, q, type = "bandpass", dest = fx) => {
+        const s = AC.createBufferSource(); s.buffer = b; s.loop = true;
+        const bp = AC.createBiquadFilter(); bp.type = type; bp.frequency.value = f; bp.Q.value = q;
+        const g = AC.createGain(); g.gain.value = 0; s.connect(bp); bp.connect(g); g.connect(dest); s.start(0, Math.random() * 1.5); srcs.push(s);
         return { s, bp, g };
       };
-      const engines = [];
+      const pan = v => { if (!AC.createStereoPanner) return null; const p = AC.createStereoPanner(); p.pan.value = v; return p; };
+      // forme d'onde d'un 4 cylindres : 2e harmonique forte, harmoniques impaires pour le grain
+      const im = new Float32Array([0, 1, 0.95, 0.42, 0.62, 0.3, 0.34, 0.14, 0.2, 0.09, 0.12, 0.05, 0.07, 0.03]);
+      const wave = AC.createPeriodicWave(new Float32Array(im.length), im);
+      const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 2.2); }
+      const engine = (vol, p) => {
+        const out = AC.createGain(); out.gain.value = 0;
+        const sh = AC.createWaveShaper(); sh.curve = curve; sh.oversample = "2x";
+        const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 600; lp.Q.value = 0.9;
+        const body = AC.createOscillator(); body.setPeriodicWave(wave); const bodyG = AC.createGain(); bodyG.gain.value = 0.55;
+        const body2 = AC.createOscillator(); body2.setPeriodicWave(wave); body2.detune.value = 9; const body2G = AC.createGain(); body2G.gain.value = 0.28; // léger battement : le moteur « vibre »
+        const rasp = AC.createOscillator(); rasp.type = "sawtooth"; const rbp = AC.createBiquadFilter(); rbp.type = "bandpass"; rbp.Q.value = 2.2; const raspG = AC.createGain(); raspG.gain.value = 0;
+        const whine = AC.createOscillator(); whine.type = "triangle"; const whineG = AC.createGain(); whineG.gain.value = 0;
+        // combustion : bruit filtré, modulé au rythme des explosions
+        const cn = AC.createBufferSource(); cn.buffer = white; cn.loop = true; const cbp = AC.createBiquadFilter(); cbp.type = "bandpass"; cbp.Q.value = 1.4;
+        const am = AC.createGain(); am.gain.value = 0.5; const lfo = AC.createOscillator(); lfo.type = "square"; const lfoG = AC.createGain(); lfoG.gain.value = 0.5; const combG = AC.createGain(); combG.gain.value = 0.18;
+        lfo.connect(lfoG); lfoG.connect(am.gain); cn.connect(cbp); cbp.connect(am); am.connect(combG);
+        body.connect(bodyG); body2.connect(body2G); rasp.connect(rbp); rbp.connect(raspG);
+        for (const g of [bodyG, body2G, raspG, combG]) g.connect(sh);
+        sh.connect(lp); lp.connect(out); whine.connect(whineG); whineG.connect(out);
+        const pn = pan(p || 0); if (pn) { out.connect(pn); pn.connect(fx); } else out.connect(fx);
+        for (const o of [body, body2, rasp, whine, lfo]) { o.frequency.value = 30; o.start(); srcs.push(o); }
+        cn.start(0, Math.random()); srcs.push(cn);
+        return { out, lp, body, body2, rasp, rbp, raspG, whine, whineG, lfo, cbp, combG, pn, vol, load: 0, gear: 0, cut: 0, popT: 0 };
+      };
+      const n1 = Math.max(1, n);
+      const engines = [], tyres = [], winds = [], grav = [];
       for (let k = 0; k < n; k++) {
-        const o1 = AC.createOscillator(), o2 = AC.createOscillator(), lp = AC.createBiquadFilter(), g = AC.createGain();
-        o1.type = "sawtooth"; o2.type = "square"; lp.type = "lowpass"; lp.frequency.value = 600; g.gain.value = 0;
-        o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(AC.destination); o1.start(); o2.start();
-        engines.push({ o1, o2, lp, g });
+        const p = n === 1 ? 0 : n === 2 ? (k ? 0.45 : -0.45) : [-0.6, 0.6, -0.3, 0.3][k];
+        engines.push(engine(0.5 / Math.sqrt(n1), p));
+        tyres.push(noise(white, 2300, 7)); winds.push(noise(buf, 900, 0.6, "lowpass")); grav.push(noise(white, 700, 0.8));
       }
-      this.nodes = { roar: layer(650, 0.5), cheer: layer(2300, 2.2), engines };
+      const rival = n === 1 ? engine(0.32, 0) : null;
+      const music = cfg.music !== false ? this.music(comp) : null;
+      this.nodes = { roar: noise(buf, 650, 0.5), cheer: noise(buf, 2300, 2.2), engines, tyres, winds, grav, rival, music, master, srcs, white, fx };
     } catch (e) { this.nodes = null; }
+  },
+  // petite détonation d'échappement (au passage de rapport ou en lâchant l'accélérateur)
+  pop(e, t, vol) {
+    try {
+      const s = AC.createBufferSource(); s.buffer = this.nodes.white;
+      const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 500 + Math.random() * 700;
+      const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + 0.07);
+      s.connect(f); f.connect(g); g.connect(e.pn || this.nodes.fx); s.start(t, Math.random()); s.stop(t + 0.09);
+    } catch (err) {}
+  },
+  drive(e, t, car, vol, mute, dop) {
+    const rpmN = clamp((car.rpm - 0.25) / 0.79, 0, 1.06), f = (800 + rpmN * 6600) / 30 * (dop || 1);
+    const want = car.spin > 0 || car.finished ? 0.15 : car.shift > 0 ? 0.05 : car.throttle;
+    e.load += (want - e.load) * 0.2;
+    if (car.gear !== e.gear) { if (car.gear > e.gear && !mute && vol > 0.05) this.pop(e, t + 0.02, 0.22 * vol); e.gear = car.gear; }
+    // en lâchant les gaz à haut régime : quelques pétarades
+    if (!mute && e.load < 0.2 && rpmN > 0.45 && t > e.popT) { e.popT = t + 0.05 + Math.random() * 0.25; if (Math.random() < 0.45) this.pop(e, t, 0.12 * vol * rpmN); }
+    for (const o of [e.body, e.body2, e.rasp, e.lfo]) o.frequency.setTargetAtTime(f, t, 0.03);
+    e.rbp.frequency.setTargetAtTime(f * (3 + e.load * 1.6), t, 0.05);
+    e.cbp.frequency.setTargetAtTime(Math.min(4000, f * 4.5), t, 0.05);
+    e.whine.frequency.setTargetAtTime(120 + car.speed * 1.9, t, 0.05);
+    e.whineG.gain.setTargetAtTime(0.012 * clamp(car.speed / 400, 0, 1), t, 0.1);
+    e.raspG.gain.setTargetAtTime(0.08 + 0.32 * e.load, t, 0.05);
+    e.combG.gain.setTargetAtTime(0.1 + 0.2 * e.load, t, 0.05);
+    e.lp.frequency.setTargetAtTime(380 + (600 + 2600 * e.load) * (0.35 + 0.65 * rpmN), t, 0.05);
+    e.out.gain.setTargetAtTime(mute ? 0 : vol * e.vol * (0.42 + 0.58 * e.load) * (0.75 + 0.25 * rpmN), t, 0.06);
   },
   update(game) {
     const n = this.nodes; if (!n || !AC) return;
@@ -2034,20 +2105,91 @@ const SND = {
     let ex = 0; for (const s of game.world.stands) ex = Math.max(ex, s.exH);
     if (game.phase === "count") ex = Math.max(ex, 0.4);
     if (game.cheerT > 0) ex = Math.max(ex, 0.95);
-    n.roar.g.gain.setTargetAtTime(mute ? 0 : 0.025 + ex * ex * 0.3, t, 0.25);
-    n.cheer.g.gain.setTargetAtTime(mute ? 0 : ex * ex * 0.16 * (0.55 + 0.45 * Math.abs(Math.sin(t * 2.7) * Math.sin(t * 1.3))), t, 0.12);
+    n.roar.g.gain.setTargetAtTime(mute ? 0 : 0.02 + ex * ex * 0.22, t, 0.25);
+    n.cheer.g.gain.setTargetAtTime(mute ? 0 : ex * ex * 0.12 * (0.55 + 0.45 * Math.abs(Math.sin(t * 2.7) * Math.sin(t * 1.3))), t, 0.12);
     n.cheer.bp.frequency.setTargetAtTime(1900 + Math.sin(t * 2.1) * 450 + Math.random() * 350, t, 0.08);
+    if (n.music) n.music.g.gain.setTargetAtTime(game.paused ? 0.1 : 0.32, t, 0.3);
     game.humans.forEach((c, i) => {
       const e = n.engines[i]; if (!e) return;
-      const f = 34 + c.rpm * 120 + Math.max(0, c.gear) * 5;
-      e.o1.frequency.setTargetAtTime(f, t, 0.05); e.o2.frequency.setTargetAtTime(f * 0.5 + i * 3, t, 0.05);
-      e.lp.frequency.setTargetAtTime(350 + c.throttle * 900, t, 0.1);
-      e.g.gain.setTargetAtTime(mute || c.finished ? 0 : (0.014 + c.throttle * 0.02) / Math.sqrt(game.humans.length), t, 0.08);
+      this.drive(e, t, c, 1, mute, 1);
+      const sl = c.onRoad && c.spin <= 0 ? clamp(((c.slip || 0) - 70) / 220, 0, 1) : 0; // crissement des pneus
+      n.tyres[i].g.gain.setTargetAtTime(mute ? 0 : sl * 0.09 / Math.sqrt(game.humans.length), t, 0.05);
+      n.tyres[i].bp.frequency.setTargetAtTime(1900 + sl * 900 + Math.sin(t * 23) * 120, t, 0.03);
+      const v = clamp(c.speed / 560, 0, 1.3); // souffle du vent
+      n.winds[i].g.gain.setTargetAtTime(mute ? 0 : v * v * 0.07 / Math.sqrt(game.humans.length), t, 0.2);
+      n.winds[i].bp.frequency.setTargetAtTime(400 + v * 1600, t, 0.2);
+      n.grav[i].g.gain.setTargetAtTime(mute || c.onRoad ? 0 : clamp(c.speed / 300, 0, 1) * 0.07, t, 0.06); // gravier hors piste
     });
+    // le rival le plus proche : on l'entend arriver puis s'éloigner (effet Doppler)
+    if (n.rival) {
+      const me = game.humans[0]; let best = null, bd = 1e9;
+      for (const o of game.cars) if (o !== me) { const dd = Math.hypot(o.x - me.x, o.y - me.y); if (dd < bd) { bd = dd; best = o; } }
+      if (best) {
+        const dx = best.x - me.x, dy = best.y - me.y, dist = Math.max(1, bd);
+        const vr = ((best.vx - me.vx) * dx + (best.vy - me.vy) * dy) / dist, dop = clamp(3100 / (3100 + vr), 0.8, 1.25);
+        const yaw = game.r3 ? game.r3.camYaw(0) : me.a, side = Math.sin(Math.atan2(dy, dx) - yaw);
+        if (n.rival.pn) n.rival.pn.pan.setTargetAtTime(clamp(side, -0.9, 0.9), t, 0.08);
+        this.drive(n.rival, t, best, clamp(160 / (dist + 60), 0, 1), mute, dop);
+      }
+    }
+  },
+  // Musique de fond originale, dans l'esprit des génériques de Formule 1 : ré mineur, 128 battements par minute,
+  // arpège de synthé en doubles croches, basse qui pulse, nappe de cordes, thème héroïque, batterie légère
+  music(dest) {
+    const g = AC.createGain(); g.gain.value = 0; g.gain.setTargetAtTime(0.32, AC.currentTime + 0.5, 1.5); g.connect(dest);
+    const dly = AC.createDelay(1), fb = AC.createGain(), dlf = AC.createBiquadFilter(), wet = AC.createGain();
+    const spb = 60 / 128, s16 = spb / 4;
+    dly.delayTime.value = s16 * 3; fb.gain.value = 0.32; dlf.type = "lowpass"; dlf.frequency.value = 2400; wet.gain.value = 0.35;
+    dly.connect(dlf); dlf.connect(fb); fb.connect(dly); dlf.connect(wet); wet.connect(g);
+    const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+    const nb = AC.createBuffer(1, AC.sampleRate * 0.5, AC.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    const tone = (t, m, dur, type, vol, cut, cutEnd, att, send, det) => {
+      const o = AC.createOscillator(), f = AC.createBiquadFilter(), a = AC.createGain();
+      o.type = type; o.frequency.value = hz(m); if (det) o.detune.value = det;
+      f.type = "lowpass"; f.frequency.setValueAtTime(cut, t); if (cutEnd) f.frequency.exponentialRampToValueAtTime(cutEnd, t + Math.min(dur, 0.25));
+      a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(vol, t + att); a.gain.setValueAtTime(vol, t + Math.max(att, dur - 0.05)); a.gain.exponentialRampToValueAtTime(0.0001, t + dur + (att > 0.1 ? 0.5 : 0.08));
+      o.connect(f); f.connect(a); a.connect(g); if (send) a.connect(dly); o.start(t); o.stop(t + dur + 0.6);
+    };
+    const hit = (t, type, vol) => {
+      if (type === "kick") { const o = AC.createOscillator(), a = AC.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.18); a.gain.setValueAtTime(vol, t); a.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(a); a.connect(g); o.start(t); o.stop(t + 0.32); return; }
+      const s = AC.createBufferSource(), f = AC.createBiquadFilter(), a = AC.createGain(); s.buffer = nb;
+      f.type = type === "hat" ? "highpass" : "bandpass"; f.frequency.value = type === "hat" ? 7500 : 1700; f.Q.value = type === "hat" ? 0.7 : 0.9;
+      const len = type === "hat" ? 0.035 : 0.14; a.gain.setValueAtTime(vol, t); a.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      s.connect(f); f.connect(a); a.connect(g); s.start(t, Math.random() * 0.3); s.stop(t + len + 0.02);
+    };
+    // ré mineur, si bémol, fa, do : la suite d'accords « épique » des grands génériques
+    const CH = [[50, 53, 57], [46, 50, 53], [41, 45, 48], [48, 52, 55]];
+    const ARP = [0, 1, 2, 3, 2, 1, 0, 1, 2, 3, 4, 3, 2, 1, 2, 3];
+    const LEAD = [[[0, 69, 3], [3, 74, 3], [6, 76, 1], [7, 77, 1], [8, 76, 4], [12, 74, 4]], [[0, 77, 3], [3, 76, 3], [6, 74, 2], [8, 70, 8]],
+      [[0, 72, 3], [3, 74, 3], [6, 76, 2], [8, 72, 4], [12, 69, 4]], [[0, 76, 3], [3, 79, 3], [6, 76, 2], [8, 74, 8]]];
+    const st = { step: 0, next: AC.currentTime + 0.6 };
+    const tick = () => {
+      while (st.next < AC.currentTime + 0.25) {
+        const t = st.next, k = st.step, s16i = k % 16, bar = Math.floor(k / 16), sec = Math.floor(bar / 8) % 4, ch = CH[bar % 4];
+        const tones = [ch[0], ch[1], ch[2], ch[0] + 12, ch[1] + 12];
+        const breakdown = sec === 3, full = sec === 1 || sec === 2;
+        if (s16i === 0) for (const m of ch) { tone(t, m + 12, spb * 4, "sawtooth", 0.022, 900, 0, 0.35, false, -7); tone(t, m + 12, spb * 4, "sawtooth", 0.022, 900, 0, 0.35, false, 7); }
+        tone(t, tones[ARP[s16i]] + 24, s16 * 0.9, "square", breakdown ? 0.018 : 0.026, 3200, 500, 0.004, true);
+        if (!breakdown) {
+          if (s16i % 2 === 0) { const m = ch[0] - 12 + (s16i % 4 === 2 ? 12 : 0); tone(t, m, s16 * 1.6, "sawtooth", 0.07, 520, 160, 0.004); tone(t, ch[0] - 24, s16 * 1.6, "sine", 0.09, 300, 0, 0.004); }
+          if (s16i % 4 === 0) hit(t, "kick", 0.32);
+          if (s16i === 4 || s16i === 12) hit(t, "clap", full ? 0.09 : 0.06);
+          hit(t, "hat", s16i % 4 === 2 ? 0.035 : 0.016);
+        } else if (s16i % 4 === 0 && bar % 8 >= 6) hit(t, "kick", 0.2 + (s16i / 16) * 0.15); // montée avant la reprise
+        if (full) for (const [p, m, l] of LEAD[bar % 4]) if (p === s16i) { tone(t, m, s16 * l, "sawtooth", 0.035, 2200, 1400, 0.03, true, -5); tone(t, m, s16 * l, "sawtooth", 0.025, 2200, 1400, 0.03, false, 6); }
+        st.next += s16; st.step++;
+      }
+    };
+    tick(); const id = setInterval(tick, 60);
+    return { g, stop: () => { clearInterval(id); try { g.gain.setTargetAtTime(0, AC.currentTime, 0.3); } catch (e) {} } };
   },
   stop() {
     const n = this.nodes; if (!n) return; this.nodes = null;
-    try { n.roar.s.stop(); n.cheer.s.stop(); n.engines.forEach(e => { e.o1.stop(); e.o2.stop(); }); } catch (e) {}
+    try {
+      if (n.music) n.music.stop();
+      n.master.gain.setTargetAtTime(0, AC.currentTime, 0.12);
+      setTimeout(() => { for (const s of n.srcs) { try { s.stop(); } catch (e) {} } try { n.master.disconnect(); } catch (e) {} }, 600);
+    } catch (e) {}
   },
 };
 
@@ -2238,6 +2380,7 @@ function renderMenu() {
   document.querySelectorAll("#humans button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.n === cfg.humans));
   document.querySelectorAll("#bots button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.b === cfg.bots));
   document.querySelectorAll("#laps button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.l === cfg.laps));
+  document.querySelectorAll("#music button").forEach(b => b.setAttribute("aria-pressed", (b.dataset.m === "1") === (cfg.music !== false)));
   document.querySelectorAll("#ctrl button").forEach(b => { b.setAttribute("aria-pressed", b.dataset.c === ctrlMode()); b.disabled = cfg.humans > 1 && !bigScreen() && b.dataset.c !== "joy"; });
   $("ctrlNote").textContent = cfg.humans > 1 && !bigScreen() ? "À plusieurs sur téléphone : joystick pour tout le monde. Touches et volant : en solo, ou à plusieurs sur une tablette de 11 pouces et plus." : cfg.humans > 1 ? "Grande tablette : touches et volant permis à plusieurs." : "Sur ordinateur : clavier (voir « Comment jouer »).";
   document.querySelectorAll("#tracks button").forEach((b, i) => b.setAttribute("aria-pressed", i === cfg.track));
@@ -2264,6 +2407,7 @@ function buildMenu() {
   document.querySelectorAll("#humans button").forEach(b => b.onclick = () => { cfg.humans = +b.dataset.n; saveCfg(); renderMenu(); });
   document.querySelectorAll("#bots button").forEach(b => b.onclick = () => { cfg.bots = +b.dataset.b; saveCfg(); renderMenu(); });
   document.querySelectorAll("#laps button").forEach(b => b.onclick = () => { cfg.laps = +b.dataset.l; saveCfg(); renderMenu(); });
+  document.querySelectorAll("#music button").forEach(b => b.onclick = () => { cfg.music = b.dataset.m === "1"; saveCfg(); renderMenu(); });
   document.querySelectorAll("#ctrl button").forEach(b => b.onclick = () => { cfg.ctrl = b.dataset.c; saveCfg(); renderMenu(); });
   $("itemList").innerHTML = Object.entries(ITEMS).filter(([k]) => k !== "triple").map(([, it]) => `<div><i>${it.icon}</i><span><b>${it.name}</b> : ${it.desc}</span></div>`).join("");
   $("go").onclick = startRace;
