@@ -1,20 +1,26 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes">
 <title>Sapy Rush</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair:ital,opsz,wght@0,5..1200,500..800;1,5..1200,500..800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
 <style>
-/* Arcade de poche : un seul look sombre, néon ambre / rose / turquoise, écran de jeu plein cadre */
+/* Couleurs du site Consortium SAPY : graphite profond, orange SAPY en accent, bleu ciel en second accent,
+   titres en Playfair, textes en Plus Jakarta Sans, coins arrondis et boutons en pilule */
 :root {
-  --bg: #120f1f;
-  --panel: #1e1932;
-  --line: #3a3358;
-  --fg: #f4eedd;
-  --muted: #a69fbf;
-  --amber: #ffb000;
-  --rose: #ff3d6e;
-  --teal: #36d6c8;
-  --display: "Bungee", "Arial Black", Impact, sans-serif;
-  --body: "Chakra Petch", "Trebuchet MS", system-ui, sans-serif;
+  --bg: #0E1114;
+  --panel: #15191E;
+  --panel-2: #1C2127;
+  --line: rgba(226,232,240,.14);
+  --line-2: rgba(226,232,240,.26);
+  --fg: #F5F3EF;
+  --muted: #9AA2AC;
+  --amber: #E8784E;
+  --on-amber: #1A0B05;
+  --rose: #6FAEE6;
+  --teal: #4FD1B5;
+  --navy: #0B4F87;
+  --serif: "Playfair", "Playfair Display", Georgia, serif;
+  --display: "Plus Jakarta Sans", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --body: "Plus Jakarta Sans", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
 }
 html, body { height: 100%; }
@@ -31,66 +37,68 @@ canvas#c3[hidden] { display: none; }
 .screen {
   position: fixed; inset: 0; overflow-y: auto; touch-action: pan-y;
   padding: calc(14px + env(safe-area-inset-top, 0px)) 16px calc(18px + env(safe-area-inset-bottom, 0px));
-  background: radial-gradient(120% 90% at 50% 0%, #2a1f4a 0%, var(--bg) 60%);
+  background: radial-gradient(110% 80% at 50% 0%, #10304f 0%, #121820 45%, var(--bg) 75%);
   box-sizing: border-box;
 }
 .wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 14px; }
 h1 {
-  font-family: var(--display); font-weight: 400; margin: 0; line-height: .95;
-  font-size: clamp(2.1rem, 7vw, 3.6rem); letter-spacing: .02em; color: var(--amber);
-  text-shadow: 3px 3px 0 var(--rose), 6px 6px 0 #00000088; text-wrap: balance;
+  font-family: var(--serif); font-weight: 600; margin: 0; line-height: 1;
+  font-size: clamp(2.3rem, 7.5vw, 3.9rem); letter-spacing: -.01em; color: var(--fg);
+  text-shadow: 0 2px 22px rgba(0,0,0,.5); text-wrap: balance;
 }
+h1 em { font-style: italic; color: var(--amber); }
 .tag { margin: 4px 0 0; color: var(--muted); font-size: .95rem; }
 .cols { display: grid; gap: 14px; grid-template-columns: 1fr; }
 @media (min-width: 720px) { .cols { grid-template-columns: 1fr 1fr; } }
-.box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
-.lbl { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.box { background: rgba(21,25,30,.82); border: 1px solid var(--line); border-radius: 20px; backdrop-filter: blur(10px); padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.lbl { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--rose); font-weight: 600; }
 .seg { display: flex; flex-wrap: wrap; gap: 8px; }
 button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
-button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+button:focus-visible { outline: 3px solid var(--rose); outline-offset: 2px; }
 .seg button {
-  flex: 1 1 0; min-width: 52px; padding: 10px 8px; border-radius: 10px; border: 2px solid var(--line);
-  background: #15122a; font-weight: 700; font-size: 1.05rem;
+  flex: 1 1 0; min-width: 52px; padding: 10px 8px; border-radius: 999px; border: 1px solid var(--line-2);
+  background: transparent; font-weight: 600; font-size: 1rem;
 }
 .seg button:disabled { opacity: .35; }
 .note { margin: 6px 0 0; font-size: 12px; opacity: .7; }
-.seg button[aria-pressed="true"] { border-color: var(--amber); background: #3a2a10; color: var(--amber); }
-.tracks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.tracks button { padding: 6px; border-radius: 10px; border: 2px solid var(--line); background: #15122a; display: grid; gap: 4px; text-align: left; }
-.tracks button[aria-pressed="true"] { border-color: var(--amber); }
-.tracks canvas { width: 100%; aspect-ratio: 2 / 1; max-width: 100%; border-radius: 6px; display: block; }
-.tracks b { font-size: .88rem; }
+.seg button[aria-pressed="true"] { border-color: var(--fg); background: var(--fg); color: var(--bg); }
+.tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; max-height: 360px; overflow-y: auto; padding-right: 2px; }
+.tracks button { padding: 6px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); display: grid; gap: 4px; text-align: left; }
+.tracks button[aria-pressed="true"] { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.tracks canvas { width: 100%; aspect-ratio: 2 / 1; max-width: 100%; border-radius: 10px; display: block; }
+.tracks b { font-family: var(--serif); font-weight: 600; font-size: 1rem; }
 .tracks span { font-size: .72rem; color: var(--muted); }
 .garage { display: grid; gap: 8px; }
-.pilot { display: grid; grid-template-columns: auto 64px 1fr auto auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: #15122a; }
-.pilot .n { font-family: var(--display); font-size: 1rem; width: 2.2em; }
+.pilot { display: grid; grid-template-columns: auto 64px 1fr auto auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 14px; background: var(--panel-2); }
+.pilot .n { font-family: var(--display); font-weight: 800; font-size: 1rem; width: 2.2em; }
 .pilot canvas { width: 64px; height: 36px; }
 .pilot .m { min-width: 0; display: grid; }
 .pilot .m b { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pilot .m span { font-size: .72rem; color: var(--muted); }
-.arrow { width: 40px; height: 40px; border-radius: 10px; border: 2px solid var(--line); background: var(--panel); font-size: 1rem; }
+.arrow { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line-2); background: transparent; font-size: 1rem; }
 .go {
-  font-family: var(--display); font-size: 1.5rem; padding: 14px; border-radius: 14px; border: 0;
-  background: var(--amber); color: #1a1000; box-shadow: 0 5px 0 #a86a00;
+  font-family: var(--display); font-weight: 800; font-size: 1.15rem; letter-spacing: .14em; text-transform: uppercase;
+  padding: 16px; border-radius: 999px; border: 0;
+  background: var(--amber); color: var(--on-amber); box-shadow: 0 12px 30px -10px rgba(232,120,78,.7);
 }
-.go:active { transform: translateY(3px); box-shadow: 0 2px 0 #a86a00; }
+.go:active { transform: translateY(2px); box-shadow: 0 4px 14px -6px rgba(232,120,78,.7); }
 .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; font-size: .85rem; }
 .items div { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
 .items i { font-style: normal; font-size: 1.15rem; }
 details summary { cursor: pointer; font-weight: 700; }
 details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 1.45; }
-.result h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 6vw, 3rem); margin: 0; color: var(--amber); text-shadow: 3px 3px 0 var(--rose); }
+.result h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(2rem, 6vw, 3.2rem); margin: 0; color: var(--fg); }
 .rank { display: grid; gap: 6px; }
-.rank div { display: grid; grid-template-columns: 2.2em 14px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: #15122a; font-variant-numeric: tabular-nums; }
+.rank div { display: grid; grid-template-columns: 2.2em 14px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: var(--panel-2); font-variant-numeric: tabular-nums; }
 .rank div.me { outline: 2px solid var(--amber); }
 .rank .dot { width: 14px; height: 14px; border-radius: 50%; }
 .row2 { display: flex; gap: 10px; flex-wrap: wrap; }
 .row2 button { flex: 1 1 140px; }
-.ghost { font-family: var(--display); font-size: 1.1rem; padding: 12px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel); }
+.ghost { font-family: var(--display); font-weight: 700; font-size: .95rem; letter-spacing: .12em; text-transform: uppercase; padding: 13px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; }
 #rotate { display: grid; place-items: center; text-align: center; background: var(--bg); z-index: 5; }
 #pauseBtn {
   position: fixed; top: calc(6px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
-  width: 44px; height: 32px; border-radius: 10px; border: 1px solid #ffffff44; background: #00000066; color: var(--fg); z-index: 3; font-weight: 700;
+  width: 44px; height: 32px; border-radius: 999px; border: 1px solid #ffffff44; background: #00000066; color: var(--fg); z-index: 3; font-weight: 700;
 }
 @media (prefers-reduced-motion: reduce) { .go:active { transform: none; } }
 </style>
@@ -104,7 +112,8 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
 <div id="menu" class="screen">
   <div class="wrap">
     <div>
-      <h1>SAPY RUSH</h1>
+      <div class="lbl">Consortium SAPY présente</div>
+      <h1>Sapy <em>Rush</em></h1>
       <p class="tag">Course à plusieurs sur le même téléphone. Un joystick par pilote, des objets à ramasser, et tous les coups sont permis.</p>
     </div>
     <div class="cols">
@@ -129,7 +138,7 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
         </div>
       </div>
       <div class="box">
-        <div class="lbl">Circuit</div>
+        <div class="lbl">Circuit · 15 quartiers de Lomé, fais défiler</div>
         <div class="tracks" id="tracks"></div>
       </div>
     </div>
@@ -184,18 +193,51 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
 // =====================================================================
 const R = 92, KERB = 10, GRASS = 150, TEX = 0.5;
 const TRACKS = [
-  { name: "Grand Prix Vert", desc: "Rapide, en pleine campagne",
+  { name: "Nyékonakpoè", desc: "Rapide, avenues bordées d'arbres",
     pts: [[500,700],[1500,450],[2700,500],[3600,700],[3800,1400],[3200,1700],[2500,1500],[1900,1800],[2300,2300],[3400,2200],[3700,2650],[2000,2750],[900,2600],[450,1800]],
     wall: "#225c2a", off: "#4f9c3f", road: "#4a4a50", line: "#ebebeb", kerb: ["#dc2828","#f0f0f0"], barrier: ["#d21e1e","#f0f0f0"], dust: "#7a5f3c", deco: "trees" },
-  { name: "Canyon du Désert", desc: "Épingles serrées, sable qui freine",
+  { name: "Dékon", desc: "Épingles serrées en terre rouge",
     pts: [[500,500],[1800,500],[2000,1100],[1300,1300],[1400,1900],[2600,1900],[2700,700],[3800,600],[3900,2600],[2500,2700],[800,2600],[500,1500]],
-    wall: "#a0643a", off: "#dcbc7a", road: "#625852", line: "#fae6a0", kerb: ["#e6781e","#faf0dc"], barrier: ["#78502d","#5a3c23"], dust: "#d7af6e", deco: "desert" },
-  { name: "Néon City", desc: "De nuit, phares allumés", night: true,
+    wall: "#9a4a2a", off: "#cf8a5c", road: "#5e5450", line: "#fae6a0", kerb: ["#E8784E","#faf0dc"], barrier: ["#78402a","#5a3220"], dust: "#c0703f", deco: "desert" },
+  { name: "Assivito", desc: "Le grand marché, de nuit", night: true,
     pts: [[500,500],[2500,500],[2500,1200],[3500,1200],[3500,500],[4300,500],[4300,2500],[3000,2500],[3000,1900],[1800,1900],[1800,2600],[500,2600]],
     wall: "#1c1c2a", off: "#30303e", road: "#2a2a32", line: "#ffe678", kerb: ["#ff28c8","#28f0ff"], barrier: ["#ff28c8","#28f0ff"], dust: "#5a5a64", deco: "city" },
-  { name: "Lac Gelé", desc: "Verglas : ça glisse fort", ice: true,
+  { name: "Amoutivé", desc: "Patinoire géante : ça glisse fort", ice: true,
     pts: [[500,1400],[800,500],[1800,450],[2300,1100],[3000,500],[3900,700],[4000,1700],[3300,2500],[2300,2000],[1500,2600],[700,2400]],
     wall: "#c4d4e4", off: "#ecf1fa", road: "#96c0de", line: "#fafcff", kerb: ["#3c78dc","#fafaff"], barrier: ["#3c78dc","#fafaff"], dust: "#ffffff", deco: "ice" },
+  { name: "Bè", desc: "Bord de mer, longues lignes droites",
+    pts: [[2050,370],[3660,500],[3940,1020],[3880,2010],[2920,2270],[2240,2280],[1300,1890],[230,1890],[160,910],[870,460]],
+    wall: "#2f8fb0", off: "#e6d3a3", road: "#55545a", line: "#f5f3ef", kerb: ["#E8784E","#f5f3ef"], barrier: ["#0B4F87","#f5f3ef"], dust: "#d8c08a", deco: "palms" },
+  { name: "Tokoin", desc: "En ville, en plein jour",
+    pts: [[980,1940],[110,1400],[510,760],[730,370],[1880,670],[2760,680],[3650,440],[3630,1220],[3170,1530],[3590,2300],[2780,2490],[2100,2390],[1650,2090]],
+    wall: "#5a5e66", off: "#8a8f96", road: "#3c3d44", line: "#f5f3ef", kerb: ["#0B4F87","#f5f3ef"], barrier: ["#E8784E","#f5f3ef"], dust: "#7a7a80", deco: "city" },
+  { name: "Kodjoviakopé", desc: "Cocotiers et virages rapides",
+    pts: [[1120,270],[2530,40],[2750,710],[3870,1040],[3940,1840],[3060,2630],[2360,2040],[1210,2390],[1130,1530],[640,960]],
+    wall: "#2c8a7c", off: "#dcc996", road: "#4e4e54", line: "#f5f3ef", kerb: ["#4FD1B5","#f5f3ef"], barrier: ["#4FD1B5","#0E1114"], dust: "#cdb57e", deco: "palms" },
+  { name: "Hanoukopé", desc: "Quartier vert, très technique",
+    pts: [[2900,2440],[2220,2700],[1700,1990],[310,2030],[260,1520],[450,1030],[1230,720],[1630,190],[2950,100],[2920,800],[3660,1050],[4060,1630],[3170,2050]],
+    wall: "#235a2c", off: "#58a044", road: "#48484e", line: "#ebebeb", kerb: ["#dc2828","#f0f0f0"], barrier: ["#d21e1e","#f0f0f0"], dust: "#7a5f3c", deco: "trees" },
+  { name: "Ablogamé", desc: "Au bord de la lagune",
+    pts: [[2390,380],[3200,230],[3750,580],[3440,1180],[3700,1710],[3370,2210],[2810,2080],[2420,2690],[1520,2110],[750,2270],[450,1740],[370,1000],[1180,860],[1670,620]],
+    wall: "#2a7898", off: "#c9c48a", road: "#4a4a50", line: "#f5f3ef", kerb: ["#6FAEE6","#f5f3ef"], barrier: ["#6FAEE6","#f5f3ef"], dust: "#b8a874", deco: "palms" },
+  { name: "Adidogomé", desc: "Pistes de latérite, ça dérape",
+    pts: [[1090,840],[1750,50],[2550,890],[4220,1170],[4050,1820],[2550,2010],[2070,2550],[1200,2050],[350,1680]],
+    wall: "#8e3f22", off: "#c4734a", road: "#5a4e48", line: "#fae6a0", kerb: ["#F2A03D","#faf0dc"], barrier: ["#6e3420","#4e2416"], dust: "#b8603a", deco: "desert" },
+  { name: "Agoè", desc: "Grand tour à travers la verdure",
+    pts: [[1680,270],[2710,100],[3210,800],[3960,950],[4090,1820],[3270,2190],[2760,2700],[1920,2110],[1110,2290],[720,1940],[560,1560],[1070,1120],[890,540]],
+    wall: "#2a6630", off: "#62a64a", road: "#4a4a50", line: "#ebebeb", kerb: ["#F2A03D","#f0f0f0"], barrier: ["#F2A03D","#1c1c1c"], dust: "#7a5f3c", deco: "trees" },
+  { name: "Totsi", desc: "Terre rouge et longs virages",
+    pts: [[1270,2540],[790,1990],[1110,1360],[500,1020],[970,350],[2120,270],[2810,590],[3580,800],[4140,1000],[4260,1550],[3320,2200],[2470,2330],[1720,2750]],
+    wall: "#a0502e", off: "#d49166", road: "#605652", line: "#fae6a0", kerb: ["#E8784E","#faf0dc"], barrier: ["#E8784E","#faf0dc"], dust: "#c27a4a", deco: "desert" },
+  { name: "Djidjolé", desc: "Course de nuit en ville", night: true,
+    pts: [[1460,510],[2270,470],[2840,650],[3060,1060],[3940,1160],[4070,1670],[3060,1760],[2590,2090],[2360,2680],[1370,2230],[740,2070],[260,1870],[530,1170],[600,590]],
+    wall: "#1a1e26", off: "#2c3038", road: "#28292f", line: "#ffe678", kerb: ["#E8784E","#6FAEE6"], barrier: ["#E8784E","#6FAEE6"], dust: "#5a5a64", deco: "city" },
+  { name: "Forever", desc: "Nuit de fête, néons partout", night: true,
+    pts: [[2180,2630],[1260,2640],[1280,1750],[600,1600],[370,1260],[480,600],[1590,420],[2170,500],[2800,320],[3060,1050],[3640,1150],[3960,1780],[3260,2160],[2850,2280]],
+    wall: "#1c1c2a", off: "#30303e", road: "#2a2a32", line: "#ffe678", kerb: ["#ff28c8","#28f0ff"], barrier: ["#ff28c8","#28f0ff"], dust: "#5a5a64", deco: "city" },
+  { name: "Agbalépédogan", desc: "Rapide, entre les arbres",
+    pts: [[3640,1780],[3610,2300],[2100,2380],[1720,2070],[460,2240],[130,1250],[680,770],[1550,860],[2060,80],[3700,510],[3180,1330]],
+    wall: "#285e30", off: "#559c42", road: "#4a4a50", line: "#ebebeb", kerb: ["#0B4F87","#f0f0f0"], barrier: ["#0B4F87","#f0f0f0"], dust: "#7a5f3c", deco: "trees" },
 ];
 // Véhicules de la gamme : Jetour, Soueast et JMC
 const CARS = [
@@ -229,7 +271,7 @@ const ITEM_TABLE = [
   { verte: 2, rouge: 3, turbo: 3, triple: 2, bombe: 2, etoile: 1, eclair: 1 },
   { rouge: 3, triple: 3, etoile: 3, eclair: 2, turbo: 2, bombe: 1 },
 ];
-const PCOLORS = ["#ffb000", "#36d6c8", "#ff3d6e", "#a77bff"];
+const PCOLORS = ["#E8784E", "#6FAEE6", "#4FD1B5", "#F2A03D"];
 const BOT_NAMES = ["Turbo Tom", "Lola Drift", "Max Vitesse", "Zoé Nitro", "Rico Rapido", "Nina Gomme"];
 
 // =====================================================================
@@ -461,6 +503,10 @@ class World {
       if (kind === "trees") {
         c.fillStyle = ["#2f7a34", "#3a8c3a", "#24692f", "#4a9a40"][k % 4]; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
         c.fillStyle = "rgba(255,255,255,.14)"; c.beginPath(); c.arc(x - r / 3, y - r / 3, r / 2, 0, 7); c.fill();
+      } else if (kind === "palms") {
+        c.strokeStyle = ["#2f8a3a", "#3a9a40", "#27783a"][k % 3]; c.lineWidth = r * 0.35; c.lineCap = "round";
+        for (let j = 0; j < 7; j++) { const a = j / 7 * 6.283 + k; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + Math.cos(a + 0.3) * r * 0.8, y + Math.sin(a + 0.3) * r * 0.8, x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); c.stroke(); }
+        c.fillStyle = "#6b4a2b"; c.beginPath(); c.arc(x, y, r * 0.22, 0, 7); c.fill();
       } else if (kind === "desert") {
         c.fillStyle = ["#8c6446", "#785540", "#a5785a"][k % 3]; c.beginPath();
         for (let j = 0; j < 7; j++) { const a = j / 7 * 6.283, rr2 = r * rnd(0.7, 1.1); c.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
@@ -1001,7 +1047,7 @@ class Game {
     }
     if (this.spare) this.drawSpare(this.spare);
     if (this.views.length > 1) {
-      ctx.strokeStyle = "#120f1f"; ctx.lineWidth = 4;
+      ctx.strokeStyle = "#0E1114"; ctx.lineWidth = 4;
       for (const v of this.views) ctx.strokeRect(v.x, v.y, v.w, v.h);
     }
     if (this.phase === "count" || this.goT > 0) {
@@ -1009,8 +1055,8 @@ class Game {
       if (txt) {
         const f = this.phase === "count" ? 1 + (Math.ceil(this.count) - this.count) * 0.6 : 1;
         ctx.save(); ctx.translate(VW / 2, VH / 2); ctx.scale(f, f);
-        ctx.font = `${Math.min(VW, VH) * 0.28}px Bungee, Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillStyle = "#ff3d6e"; ctx.fillText(txt, 5, 5); ctx.fillStyle = this.phase === "count" ? "#ffb000" : "#5aff7a"; ctx.fillText(txt, 0, 0);
+        ctx.font = `800 ${Math.min(VW, VH) * 0.28}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillStyle = "#0B4F87"; ctx.fillText(txt, 5, 5); ctx.fillStyle = this.phase === "count" ? "#E8784E" : "#5aff7a"; ctx.fillText(txt, 0, 0);
         ctx.restore();
       }
     }
@@ -1030,7 +1076,7 @@ class Game {
     ctx.fillStyle = "#16122a"; ctx.fillRect(v.x, v.y, v.w, v.h);
     const s = Math.min((v.w - 20) / this.world.mini.width, (v.h * 0.55) / this.world.mini.height);
     this.drawMini(v.x + v.w / 2 - this.world.mini.width * s / 2, v.y + 10, s);
-    ctx.font = "700 14px 'Chakra Petch', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.font = "700 14px 'Plus Jakarta Sans', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "top";
     this.order().forEach((c, i) => {
       ctx.fillStyle = c.pi >= 0 ? PCOLORS[c.pi] : "#d8d2ea";
       ctx.fillText(`${i + 1}. ${c.name}`, v.x + 14 + (i % 2) * v.w / 2, v.y + v.h * 0.62 + Math.floor(i / 2) * 20);
@@ -1062,7 +1108,7 @@ class Game {
       ctx.save(); ctx.translate(bx.x, bx.y + Math.sin(t * 3 + bx.x) * 3); ctx.rotate(t * 1.5);
       ctx.fillStyle = `hsla(${(t * 120 + bx.x) % 360},90%,60%,.85)`; rr(ctx, -16, -16, 32, 32, 6); ctx.fill();
       ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
-      ctx.rotate(-t * 1.5); ctx.fillStyle = "#fff"; ctx.font = "22px Bungee, Impact, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 0, 2);
+      ctx.rotate(-t * 1.5); ctx.fillStyle = "#fff"; ctx.font = "800 22px 'Plus Jakarta Sans', Impact, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 0, 2);
       ctx.restore();
     }
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -1130,7 +1176,7 @@ class Game {
       ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 2.5; ctx.stroke(); draw(b); ctx.restore();
     };
     const ridges = (b) => { ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2; for (let k = 1; k < 5; k++) { const y = -b.h / 2 + b.h * k / 5; ctx.beginPath(); ctx.moveTo(-b.w / 2 + 10 * s, y); ctx.lineTo(b.w / 2 - 10 * s, y); ctx.stroke(); } };
-    const label = (t, y) => { ctx.fillStyle = "#fff"; ctx.font = `700 ${12 * s}px 'Chakra Petch', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(t, 0, y); };
+    const label = (t, y) => { ctx.fillStyle = "#fff"; ctx.font = `700 ${12 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(t, 0, y); };
     key(P.gas, pd.gas, b => { ridges(b); label("GAZ", b.h / 2 - 11 * s); });
     key(P.brake, pd.brake, b => { ridges(b); label("FREIN", b.h / 2 - 11 * s); });
     if (ctrlMode() === "btn") {
@@ -1145,7 +1191,7 @@ class Game {
       ctx.fillStyle = "#26262c"; for (const a of [Math.PI / 2, Math.PI * 0.12, Math.PI * 0.88]) { ctx.save(); ctx.rotate(a); ctx.fillRect(0, -5 * s, r - 10 * s, 10 * s); ctx.restore(); }
       ctx.fillStyle = "#33333a"; ctx.beginPath(); ctx.arc(0, 0, r * 0.3, 0, 7); ctx.fill();
       ctx.fillStyle = col; ctx.fillRect(-4 * s, -r + 1, 8 * s, 12 * s); // repère du haut du volant
-      ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = `${11 * s}px Bungee, Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("SAPY", 0, 1);
+      ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * s}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("SAPY", 0, 1);
       ctx.restore();
     }
   }
@@ -1173,20 +1219,20 @@ class Game {
     ctx.fillStyle = "rgba(10,8,22,.62)"; rr(ctx, 8, 8, 128 * s, 62 * s, 10); ctx.fill();
     ctx.fillStyle = col; ctx.fillRect(8, 8, 5, 62 * s);
     const rank = this.rankOf(car);
-    ctx.font = `${34 * s}px Bungee, Impact, sans-serif`; ctx.fillStyle = rank === 1 ? "#ffd23c" : "#f4eedd"; ctx.fillText(ordinal(rank), 20, 12);
-    ctx.font = `700 ${14 * s}px 'Chakra Petch', sans-serif`; ctx.fillStyle = "#c8c0e0";
+    ctx.font = `800 ${34 * s}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.fillStyle = rank === 1 ? "#ffd23c" : "#F5F3EF"; ctx.fillText(ordinal(rank), 20, 12);
+    ctx.font = `700 ${14 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.fillStyle = "#CDD2D8";
     ctx.fillText(`${car.name} · Tour ${Math.min(car.lap + 1, this.o.laps)}/${this.o.laps}`, 20, 12 + 40 * s);
     // pièces
     ctx.fillStyle = "rgba(10,8,22,.62)"; rr(ctx, 8, 76 * s, 78 * s, 28 * s, 8); ctx.fill();
     ctx.fillStyle = "#ffd23c"; ctx.beginPath(); ctx.arc(8 + 16 * s, 90 * s, 8 * s, 0, 7); ctx.fill();
-    ctx.fillStyle = "#f4eedd"; ctx.font = `700 ${16 * s}px 'Chakra Petch', sans-serif`; ctx.fillText(`× ${car.coins}`, 8 + 30 * s, 81 * s);
+    ctx.fillStyle = "#F5F3EF"; ctx.font = `700 ${16 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.fillText(`× ${car.coins}`, 8 + 30 * s, 81 * s);
     if (this.r3) { // compteur de vitesse (en haut quand les pédales occupent le bas de l'écran)
       ctx.save(); if (ctrlMode() !== "joy") ctx.translate(0, -(v.h - 22 * s) + 50 * s + (v.y === 0 && v.x < VW / 2 - 40 && v.x + v.w > VW / 2 + 40 ? 30 : 0));
       ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "rgba(10,8,22,.5)"; rr(ctx, v.w / 2 - 52 * s, v.h - 52 * s, 104 * s, 50 * s, 12); ctx.fill();
-      ctx.font = `${30 * s}px Bungee, Impact, sans-serif`; ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2 + 2, v.h - 22 * s + 2);
-      ctx.fillStyle = car.boost > 0 || car.star > 0 ? "#ffb000" : "#f4eedd"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2, v.h - 22 * s);
-      ctx.font = `700 ${12 * s}px 'Chakra Petch', sans-serif`; ctx.fillText("km/h", v.w / 2, v.h - 8 * s);
+      ctx.font = `800 ${30 * s}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2 + 2, v.h - 22 * s + 2);
+      ctx.fillStyle = car.boost > 0 || car.star > 0 ? "#E8784E" : "#F5F3EF"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2, v.h - 22 * s);
+      ctx.font = `700 ${12 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.fillText("km/h", v.w / 2, v.h - 8 * s);
       ctx.restore(); ctx.textAlign = "left"; ctx.textBaseline = "top";
     }
     // minicarte de la vue
@@ -1199,14 +1245,14 @@ class Game {
       ctx.fillStyle = "rgba(10,8,22,.62)"; rr(ctx, nx, ny, nw + 36 * s, 20 * s, 8); ctx.fill();
       ctx.fillStyle = "#2f8cff"; if (car.nitroOn && car.nitro > 0) ctx.fillStyle = Math.floor(this.t * 12) % 2 ? "#bfe9ff" : "#2f8cff";
       rr(ctx, nx + 34 * s, ny + 5 * s, Math.max(2, nw * car.nitro - 4), 10 * s, 4); ctx.fill();
-      ctx.fillStyle = "#cfe6ff"; ctx.font = `700 ${11 * s}px 'Chakra Petch', sans-serif`; ctx.textBaseline = "middle"; ctx.fillText("N2O", nx + 5 * s, ny + 10.5 * s); ctx.textBaseline = "top"; }
+      ctx.fillStyle = "#cfe6ff"; ctx.font = `700 ${11 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.textBaseline = "middle"; ctx.fillText("N2O", nx + 5 * s, ny + 10.5 * s); ctx.textBaseline = "top"; }
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     // messages
-    const mid = (txt, color, size, y) => { ctx.font = `${size}px Bungee, Impact, sans-serif`; ctx.fillStyle = "#000"; ctx.fillText(txt, v.w / 2 + 3, y + 3); ctx.fillStyle = color; ctx.fillText(txt, v.w / 2, y); };
+    const mid = (txt, color, size, y) => { ctx.font = `800 ${size}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.fillStyle = "#000"; ctx.fillText(txt, v.w / 2 + 3, y + 3); ctx.fillStyle = color; ctx.fillText(txt, v.w / 2, y); };
     if (car.finished) mid(`ARRIVÉE : ${ordinal(this.rankOf(car))} !`, "#ffd23c", 30 * s, v.h * 0.32);
-    else if (car.banner) mid(car.banner.txt, "#f4eedd", 28 * s, v.h * 0.3);
-    else if (car.wrong > 0.8 && Math.floor(this.t * 3) % 2) mid("MAUVAIS SENS", "#ff3d6e", 26 * s, v.h * 0.3);
-    if (car.spin > 0) mid("AÏE !", "#ff3d6e", 24 * s, v.h * 0.4);
+    else if (car.banner) mid(car.banner.txt, "#F5F3EF", 28 * s, v.h * 0.3);
+    else if (car.wrong > 0.8 && Math.floor(this.t * 3) % 2) mid("MAUVAIS SENS", "#FF8A73", 26 * s, v.h * 0.3);
+    if (car.spin > 0) mid("AÏE !", "#FF8A73", 24 * s, v.h * 0.4);
     // contrôles tactiles
     if (ctrlMode() !== "joy" && this.phase !== "done") this.drawPads(v, pi, col);
     else if (touchMode) {
@@ -1218,7 +1264,7 @@ class Game {
       } else if (this.phase !== "done") {
         ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 3; ctx.setLineDash([6, 6]);
         ctx.beginPath(); ctx.arc(70, v.h - 70, STICK_R, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-        ctx.font = `700 12px 'Chakra Petch', sans-serif`; ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fillText("pouce ici", 70, v.h - 70);
+        ctx.font = `700 12px 'Plus Jakarta Sans', sans-serif`; ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fillText("pouce ici", 70, v.h - 70);
       }
     }
     if (touchMode && this.humans.length === 1 && this.phase !== "done") {
@@ -1226,7 +1272,7 @@ class Game {
       ctx.globalAlpha = 0.9; ctx.fillStyle = on ? "#bfe9ff" : car.nitro > 0.15 ? "#2f8cff" : "rgba(47,140,255,.3)";
       ctx.beginPath(); ctx.arc(nb.x - v.x, nb.y - v.y, nb.r, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
       ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 3; ctx.stroke();
-      ctx.fillStyle = "#fff"; ctx.font = `${nb.r * 0.55}px Bungee, Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N2O", nb.x - v.x, nb.y - v.y + 1);
+      ctx.fillStyle = "#fff"; ctx.font = `800 ${nb.r * 0.55}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N2O", nb.x - v.x, nb.y - v.y + 1);
     }
     {
       const b = itemBtn(v);
@@ -1236,7 +1282,7 @@ class Game {
       ctx.font = `${b.r * 0.9}px sans-serif`; ctx.fillStyle = "#fff";
       const kinds = Object.keys(ITEMS);
       ctx.fillText(!car.item ? "🎁" : car.roll > 0 ? ITEMS[kinds[Math.floor(this.t * 14) % kinds.length]].icon : ITEMS[car.item.kind].icon, b.x - v.x, b.y - v.y + 2);
-      if (car.item && car.roll <= 0 && car.item.n > 1) { ctx.font = `700 15px 'Chakra Petch', sans-serif`; ctx.fillText("×" + car.item.n, b.x - v.x + b.r * 0.7, b.y - v.y - b.r * 0.7); }
+      if (car.item && car.roll <= 0 && car.item.n > 1) { ctx.font = `700 15px 'Plus Jakarta Sans', sans-serif`; ctx.fillText("×" + car.item.n, b.x - v.x + b.r * 0.7, b.y - v.y - b.r * 0.7); }
     }
     ctx.restore();
   }
@@ -1553,9 +1599,9 @@ class Scene3D {
     {
       const p = w.at(0, 0, {}), gant = new T.Group(); gant.position.set(p.x, 0, p.y); gant.rotation.y = -p.a; sc.add(gant);
       const pil = lam({ color: 0x9aa0aa }), bTx = keep(canvasTex(512, 64, (c, W, H) => {
-        c.fillStyle = "#120f1f"; c.fillRect(0, 0, W, H);
+        c.fillStyle = "#0E1114"; c.fillRect(0, 0, W, H);
         for (let k = 0; k < W / 16; k++) { c.fillStyle = k % 2 ? "#f2f2f2" : "#151515"; c.fillRect(k * 16, 0, 16, 8); c.fillStyle = k % 2 ? "#151515" : "#f2f2f2"; c.fillRect(k * 16, H - 8, 16, 8); }
-        c.font = "38px Bungee, Impact, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "#ffb000"; c.fillText("SAPY RUSH", W / 2, H / 2 + 2);
+        c.font = "800 38px 'Plus Jakarta Sans', Impact, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "#E8784E"; c.fillText("SAPY RUSH", W / 2, H / 2 + 2);
       }));
       for (const z of [-1, 1]) { const m = new T.Mesh(keep(new T.BoxGeometry(10, 92, 10)), pil); m.position.set(0, 46, z * (R + 26)); gant.add(m); }
       const ban = lam({ map: bTx }), beam = new T.Mesh(keep(new T.BoxGeometry(8, 22, 2 * R + 64)), [ban, ban, pil, pil, pil, pil]);
@@ -1589,8 +1635,8 @@ class Scene3D {
     const people = [], TIERS = 6, sp = low ? 13 : 8.5;
     const adTex = keep(canvasTex(1024, 64, (c, W, H) => {
       const ads = ["SAPY RUSH", "JETOUR", "SOUEAST", "JMC", "JETOUR T2", "SOUEAST S07"];
-      ads.forEach((t, k) => { const x0 = k * W / ads.length; c.fillStyle = ["#ffb000", "#1d1d22", "#0f2b4c", "#c8102e", "#c9b48a", "#f2f2f2"][k]; c.fillRect(x0, 0, W / ads.length, H);
-        c.fillStyle = k === 5 || k === 0 || k === 4 ? "#120f1f" : "#ffffff"; c.font = "26px Bungee, Impact, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(t, x0 + W / ads.length / 2, H / 2 + 2); });
+      ads.forEach((t, k) => { const x0 = k * W / ads.length; c.fillStyle = ["#E8784E", "#0E1114", "#0B4F87", "#F2A03D", "#4FD1B5", "#F5F3EF"][k]; c.fillRect(x0, 0, W / ads.length, H);
+        c.fillStyle = k !== 1 && k !== 2 ? "#0E1114" : "#ffffff"; c.font = "800 26px 'Plus Jakarta Sans', Impact, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(t, x0 + W / ads.length / 2, H / 2 + 2); });
     }, true));
     const tierMats = seatCols.map(cl => lam({ color: cl })), concrete = lam({ color: night ? 0x3a3a48 : 0xb8b4ac }), roofMat = lam({ color: night ? 0x22222e : 0xeeeeee, side: T.DoubleSide });
     for (const st of w.stands) {
@@ -1633,14 +1679,25 @@ class Scene3D {
       const leaf = inst(leafGeo, lam({ vertexColors: true }), nDeco);
       const got = scatter(nDeco, R + GRASS + 70, (k, x, z) => { const s = rnd(0.8, 1.7); trunk.setMatrixAt(k, M4(x, 12 * s, z, 0, 0, 0, s, s, s)); leaf.setMatrixAt(k, M4(x, 44 * s, z, 0, rnd(0, 6), 0, s, s, s)); leaf.setColorAt(k, colr.setHSL(0.3, 0.2, rnd(0.75, 1))); });
       trunk.count = leaf.count = got;
+    } else if (th.deco === "palms") {
+      const trunkGeo = new T.CylinderGeometry(2.6, 4.2, 80, 6); trunkGeo.translate(0, 40, 0);
+      const trunk = inst(trunkGeo, lam({ color: 0x8a6a48 }), nDeco);
+      const fr = [];
+      for (let j = 0; j < 7; j++) { const g = new T.BoxGeometry(44, 1.5, 9); g.translate(22, 0, 0); fr.push({ g, m: M4(0, 0, 0, 0, j / 7 * 6.283, -0.45), c: j % 2 ? "#2f8a3a" : "#3a9a44" }); }
+      fr.push({ g: new T.SphereGeometry(6, 6, 4), m: M4(0, -3, 0), c: "#5a3e22" });
+      const crown = inst(mergeParts(fr, true), lam({ vertexColors: true }), nDeco);
+      const got = scatter(nDeco, R + GRASS + 60, (k, x, z) => { const s = rnd(0.8, 1.4), lx = rnd(-0.18, 0.18), lz = rnd(-0.18, 0.18);
+        trunk.setMatrixAt(k, M4(x, 0, z, lx, 0, lz, s, s, s));
+        crown.setMatrixAt(k, M4(x - Math.sin(lz) * 80 * s, 80 * s * Math.cos(lx) * Math.cos(lz), z + Math.sin(lx) * 80 * s, 0, rnd(0, 6), 0, s, s, s)); crown.setColorAt(k, colr.setHSL(0.3, 0.2, rnd(0.8, 1))); });
+      trunk.count = crown.count = got;
     } else if (desert) {
       const rock = inst(new T.DodecahedronGeometry(22, 0), lam({}), nDeco), cac = inst(new T.CylinderGeometry(5, 6, 1, 7), lam({ color: 0x4f8a3c }), nDeco >> 1);
       const got = scatter(nDeco, R + GRASS + 60, (k, x, z) => { rock.setMatrixAt(k, M4(x, 6, z, rnd(0, 3), rnd(0, 3), 0, rnd(0.6, 2.2), rnd(0.5, 1.4), rnd(0.6, 2))); rock.setColorAt(k, colr.set(["#8c6446", "#a5785a", "#b98a5e"][k % 3])); });
       const gc = scatter(nDeco >> 1, R + GRASS + 60, (k, x, z) => { const h = rnd(30, 70); cac.setMatrixAt(k, M4(x, h / 2, z, 0, 0, 0, 1, h, 1)); });
       rock.count = got; cac.count = gc;
     } else if (city) {
-      const winTex = keep(canvasTex(64, 128, (c, W, H) => { c.fillStyle = "#1c1e2a"; c.fillRect(0, 0, W, H); for (let y = 4; y < H; y += 10) for (let x = 4; x < W; x += 10) { c.fillStyle = Math.random() < 0.45 ? ["#ffd98a", "#8ae6ff", "#ff9ae6"][Math.floor(Math.random() * 3)] : "#2c3042"; c.fillRect(x, y, 6, 6); } }, true));
-      const bld = inst(new T.BoxGeometry(1, 1, 1), keep(new T.MeshLambertMaterial({ map: winTex, emissive: 0xffffff, emissiveMap: winTex, emissiveIntensity: 0.9 })), nDeco >> 1);
+      const winTex = keep(canvasTex(64, 128, (c, W, H) => { c.fillStyle = night ? "#1c1e2a" : "#d9d2c4"; c.fillRect(0, 0, W, H); for (let y = 4; y < H; y += 10) for (let x = 4; x < W; x += 10) { c.fillStyle = night ? (Math.random() < 0.45 ? ["#ffd98a", "#8ae6ff", "#ff9ae6"][Math.floor(Math.random() * 3)] : "#2c3042") : ["#3d5670", "#4a6684", "#2e4258"][Math.floor(Math.random() * 3)]; c.fillRect(x, y, 6, 6); } }, true));
+      const bld = inst(new T.BoxGeometry(1, 1, 1), keep(new T.MeshLambertMaterial({ map: winTex, emissive: 0xffffff, emissiveMap: winTex, emissiveIntensity: night ? 0.9 : 0 })), nDeco >> 1);
       const got = scatter(nDeco >> 1, R + GRASS + 260, (k, x, z) => { const h = rnd(90, 520); bld.setMatrixAt(k, M4(x, h / 2, z, 0, rnd(0, 1.5), 0, rnd(80, 200), h, rnd(80, 200))); });
       bld.count = got;
     } else {
@@ -1654,7 +1711,7 @@ class Scene3D {
     {
       const nF = 46, ring = Math.max(w.w, w.h) * 0.7 + 2600, cx = w.w / 2, cz = w.h / 2;
       const geo = city ? new T.BoxGeometry(1, 1, 1) : new T.ConeGeometry(1, 1, 6);
-      const farM = inst(geo, lam({ color: night ? 0x1a1630 : desert ? 0xb07a52 : th.ice ? 0xdfe8f4 : 0x5d7f62 }), nF);
+      const farM = inst(geo, lam({ color: night ? 0x1a1630 : city ? 0x8a96a6 : desert ? 0xb07a52 : th.ice ? 0xdfe8f4 : 0x5d7f62 }), nF);
       for (let k = 0; k < nF; k++) {
         const a = k / nF * 6.283 + rnd(-0.05, 0.05), d = ring + rnd(0, 900), h = city ? rnd(300, 1300) : rnd(600, 1700), s = city ? rnd(200, 500) : rnd(900, 1800);
         farM.setMatrixAt(k, M4(cx + Math.cos(a) * d, h / 2, cz + Math.sin(a) * d, 0, rnd(0, 3), 0, s, h, s));
@@ -1662,7 +1719,7 @@ class Scene3D {
     }
 
     // ----- cubes surprise, pièces, pièges -----
-    const qTex = keep(canvasTex(64, 64, (c, W, H) => { c.fillStyle = "#ffffff"; c.fillRect(0, 0, W, H); c.strokeStyle = "#ffffff"; c.lineWidth = 6; c.fillStyle = "#fff"; c.font = "44px Bungee, Impact, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "rgba(0,0,0,.25)"; c.fillRect(0, 0, W, H); c.fillStyle = "#ffffff"; c.fillText("?", W / 2, H / 2 + 3); }));
+    const qTex = keep(canvasTex(64, 64, (c, W, H) => { c.fillStyle = "#ffffff"; c.fillRect(0, 0, W, H); c.strokeStyle = "#ffffff"; c.lineWidth = 6; c.fillStyle = "#fff"; c.font = "800 44px 'Plus Jakarta Sans', Impact, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "rgba(0,0,0,.25)"; c.fillRect(0, 0, W, H); c.fillStyle = "#ffffff"; c.fillText("?", W / 2, H / 2 + 3); }));
     this.boxMat = keep(new T.MeshLambertMaterial({ map: qTex, transparent: true, opacity: 0.92, emissive: 0x222222 }));
     const boxGeo = keep(new T.BoxGeometry(26, 26, 26));
     this.boxes = w.boxes.map(b => add(boxGeo, this.boxMat, b.x, 22, b.y));
