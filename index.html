@@ -486,7 +486,7 @@ body.land #menu h1 { font-size: 2.6rem; } body.land #menu .wrap { padding-bottom
         <p><b>Touches ◀ ▶</b> ou <b>Volant</b> : à gauche, tu tournes avec les deux touches ou en faisant pivoter le volant. À droite, la grande pédale accélère et la petite freine. Frein et accélérateur ensemble dans un virage : dérapage !</p>
         <p>Le bouton rond de ta zone lance ton objet.</p>
         <p>Roule sur les cubes « ? » pour gagner un objet. Plus tu es loin dans le classement, meilleurs sont les objets. Les pièces augmentent ta vitesse max (10 au maximum) et tu en perds 3 quand tu te fais toucher. Évite les flaques d'huile et les herses posées sur la piste. Les flèches jaunes au sol donnent un turbo.</p>
-        <p><b>Sur ordinateur, seul :</b> ZQSD ou les flèches pour conduire, Espace frein à main (dérapage), Maj nitro, E ou Entrée pour l'objet, C pour changer de caméra, R pour revenir sur la piste, Échap pour la pause.</p>
+        <p><b>Sur ordinateur, seul :</b> ZQSD ou les flèches pour conduire, Espace frein à main (dérapage), Maj nitro, en plein saut : gauche/droite pour guider la voiture et deux appuis rapides sur le frein pour un 360°, E ou Entrée pour l'objet, C pour changer de caméra, R pour revenir sur la piste, Échap pour la pause.</p>
         <p><b>À deux sur un ordinateur :</b> J1 joue avec ZQSD (Espace dérapage, Maj gauche nitro, E objet, C caméra) et J2 avec les flèches (Ctrl droit dérapage, Maj droite nitro, Entrée objet, Fin caméra).</p>
         <p><b>Nitro :</b> la jauge bleue se remplit en roulant et surtout en dérapant. Sur écran tactile, touche le bouton N2O (en solo) ; touche la minicarte pour changer de caméra.</p>
       </details>
@@ -559,7 +559,7 @@ body.land #menu h1 { font-size: 2.6rem; } body.land #menu .wrap { padding-bottom
 // =====================================================================
 // Données du jeu
 // =====================================================================
-const R = 125, KERB = 12, GRASS = 150, TEX = 0.45;
+const R = 125, KERB = 12, GRASS = 150; let TEX = 0.45; // TEX s'adapte à la taille du circuit (texture 2D)
 const GZ = 190; // gravité des sauts (unités du jeu par seconde²)
 const TRACKS = [
   { name: "Nyékonakpoè", desc: "Rapide, avenues bordées d'arbres",
@@ -608,8 +608,8 @@ const TRACKS = [
     pts: [[3640,1780],[3610,2300],[2100,2380],[1720,2070],[460,2240],[130,1250],[680,770],[1550,860],[2060,80],[3700,510],[3180,1330]],
     wall: "#285e30", off: "#559c42", road: "#4a4a50", line: "#ebebeb", kerb: ["#0B4F87","#f0f0f0"], barrier: ["#0B4F87","#f0f0f0"], dust: "#7a5f3c", deco: "trees" },
 ];
-// circuits agrandis de 45 % : courses plus longues, virages plus ouverts
-for (const t of TRACKS) t.pts = t.pts.map(([x, y]) => [Math.round(x * 1.45), Math.round(y * 1.45)]);
+// circuits agrandis (×2,1) : courses longues, virages ouverts
+for (const t of TRACKS) t.pts = t.pts.map(([x, y]) => [Math.round(x * 2.1), Math.round(y * 2.1)]);
 // Véhicules de la gamme : Jetour, Soueast et JMC
 const CARS = [
   { name: "Jetour T1", style: "suv", body: "box", color: "#3d5a45", accent: "#1c1c1c", vmax: 505, accel: 410, grip: 7.5, turn: 3.3, mass: 1.4, len: 50, wid: 27 },
@@ -626,6 +626,8 @@ const CARS = [
 ];
 // un peu plus de vitesse pour tout le monde
 for (const m of CARS) { m.vmax = Math.round(m.vmax * 1.15); m.accel = Math.round(m.accel * 1.1); }
+// les 4x4 (T1, T2, pick-up) : moteurs gonflés, les plus rapides en pointe
+for (const m of CARS) if (m.body === "box" || m.body === "pickup") { m.vmax = Math.round(m.vmax * 1.22); m.accel = Math.round(m.accel * 1.2); }
 const ITEMS = {
   turbo:    { icon: "🍄", name: "Turbo", desc: "Accélération immédiate" },
   triple:   { icon: "🍄", name: "Triple turbo", desc: "Trois turbos d'affilée" },
@@ -800,7 +802,7 @@ const SFX = {
   count: () => beep(520, 0.18), go: () => beep(880, 0.45, "square", 0.1),
   box: () => beep(600, 0.12, "triangle", 0.1, 1400), item: () => beep(300, 0.2, "sawtooth", 0.06, 900),
   hit: () => beep(200, 0.35, "sawtooth", 0.1, 60), coin: () => beep(1300, 0.08, "square", 0.05, 1900),
-  boom: () => beep(120, 0.5, "sawtooth", 0.14, 40), land: k => { beep(85, 0.28, "sine", 0.05 + 0.15 * k, 36); SND.puff(0.04 + 0.06 * k, 900, 0.2); }, lap: () => beep(700, 0.25, "triangle", 0.1, 1400),
+  boom: () => beep(120, 0.5, "sawtooth", 0.14, 40), n2o: () => { beep(700, 0.12, "sine", 0.07, 1700); SND.puff(0.05, 3500, 0.18); }, land: k => { beep(85, 0.28, "sine", 0.05 + 0.15 * k, 36); SND.puff(0.04 + 0.06 * k, 900, 0.2); }, lap: () => beep(700, 0.25, "triangle", 0.1, 1400),
 };
 
 // =====================================================================
@@ -822,7 +824,11 @@ class World {
     this.lamps = [];
     this.buildFeats();
     this.boosts = [0.17, 0.62].map(f => Math.floor(N * f));
-    this.boxes = []; this.coins = []; this.traps = [];
+    this.boxes = []; this.coins = []; this.traps = []; this.n2o = [];
+    for (const f of [0.05, 0.2, 0.38, 0.52, 0.66, 0.8, 0.92]) { // bouteilles de N2O par trois
+      const i = Math.floor(N * f), off = rnd(-70, 70);
+      for (let k = 0; k < 3; k++) this.n2o.push(this.at(i + k * 5, off, { t: 0 }));
+    }
     for (const f of [0.3, 0.55, 0.86]) {
       const i = Math.floor(N * f);
       for (const off of [-75, -25, 25, 75]) this.boxes.push(this.at(i, off, { t: 0 }));
@@ -835,7 +841,7 @@ class World {
     for (const [f, type] of trapAt) this.traps.push(this.at(Math.floor(N * f), rnd(-75, 75), { type }));
     // rien sur les tremplins ni au-dessus du vide ; une plaque turbo avant chaque grand saut
     const freeAt = o => !this.busy[o.i];
-    this.boxes = this.boxes.filter(freeAt); this.coins = this.coins.filter(freeAt); this.traps = this.traps.filter(freeAt);
+    this.boxes = this.boxes.filter(freeAt); this.coins = this.coins.filter(freeAt); this.traps = this.traps.filter(freeAt); this.n2o = this.n2o.filter(freeAt);
     for (const f of this.feats) if (f.t === "saut") this.boosts.push((f.i0 - 18 + N) % N);
     // lampadaires le long de la piste (nuit)
     if (theme.night) for (let i = 0, n = 0; i < N; i += 26, n++) {
@@ -870,8 +876,8 @@ class World {
     };
     const kind = { trees: "cascade", palms: "lagune", desert: "ravin", city: "canal", ice: "glace" }[this.th.deco] || "cascade";
     const RL = 22, H = 34;
-    for (let n = 0; n < 3; n++) {
-      const G = 24 + n * 3; // vide de 29 à 36 m
+    for (let n = 0; n < 5; n++) {
+      const G = 24 + (n % 3) * 3; // vide de 29 à 36 m
       let i0 = -1;
       for (const [lim, bf, af] of [[0.14, 30, 24], [0.24, 30, 24], [0.36, 26, 20], [0.5, 22, 16]]) { i0 = pickSpot(RL + G, bf, af, lim); if (i0 >= 0) break; }
       if (i0 < 0) break;
@@ -884,7 +890,7 @@ class World {
       this.feats.push(f);
       mark(i0 - 40, i0 + RL + G + 30);
     }
-    { // tremplin de côté : on le prend sur la voie extérieure et la voiture fait un tonneau
+    for (let n = 0; n < 2; n++) { // tremplin de côté : on le prend sur la voie extérieure et la voiture fait un tonneau
       const L = 16, i0 = pickSpot(L, 16, 16, 0.3);
       if (i0 >= 0) { const side = Math.random() < 0.5 ? -1 : 1; for (let k = 0; k < L; k++) this.bar[w(i0 + k)] = side * (k + 1) / L; this.feats.push({ t: "tonneau", i0, i1: i0 + L - 1, side }); mark(i0 - 20, i0 + L + 20); }
     }
@@ -921,6 +927,7 @@ class World {
   }
   buildTexture() {
     const th = this.th, cv = document.createElement("canvas");
+    TEX = Math.min(0.45, 3200 / Math.max(this.w, this.h)); // texture pas trop lourde pour un téléphone
     cv.width = Math.ceil(this.w * TEX); cv.height = Math.ceil(this.h * TEX);
     const c = cv.getContext("2d");
     c.scale(TEX, TEX); c.lineJoin = c.lineCap = "round";
@@ -1167,6 +1174,7 @@ class Car {
     this.throttle = 0; this.brake = false; this.steer = 0; this.drift = false; this.nitro = 0.35; this.nitroOn = false; this.gear = 0; this.shift = 0; this.rpm = 0.25; this.pwV = 1; this.pwA = 1; this.gripM = 1; this.nitroM = 1;
     this.ai = null; this.skid = null; this.lapStart = 0; this.bestLap = null; this.wrong = 0;
     this.z = 0; this.vz = 0; this.air = false; this.airT = 0; this.rollA = 0; this.rollV = 0; this.onBar = 0; // relief et sauts
+    this.spinA = 0; this.spinV = 0; this.tricks = []; this.tapT = -9; this.brk0 = false; this.wreck = 0; this.draft = 0; this.draftT = 0;
   }
   get scale() { return this.shrink > 0 ? 0.6 : 1; }
   get rad() { return (this.m.len + this.m.wid) * 0.25 * this.scale; }
@@ -1176,8 +1184,17 @@ class Car {
     const fx = Math.cos(this.a), fy = Math.sin(this.a), rx = -fy, ry = fx;
     let vf = this.vx * fx + this.vy * fy, vr = this.vx * rx + this.vy * ry;
     const d = w.locate(this);
-    if (this.air) { // en vol : la voiture suit sa trajectoire, on ne peut ni accélérer ni tourner
-      this.vz -= GZ * dt; this.z += this.vz * dt; this.airT += dt; this.rollA += this.rollV * dt;
+    // double appui sur le frein en plein saut : 360° à plat (comme dans Asphalt)
+    if (this.brake && !this.brk0) { if (this.air && !this.wreck && !this.spinV && game.time - this.tapT < 0.4) { this.spinV = (this.steer < -0.2 ? -1 : 1) * Math.PI * 2 / 0.65; this.tapT = -9; } else this.tapT = game.time; }
+    this.brk0 = this.brake;
+    this.trickStep(dt);
+    if (this.air) { // en vol : la voiture suit sa trajectoire, et on peut la guider à gauche ou à droite
+      this.vz -= GZ * dt; this.z += this.vz * dt; this.airT += dt;
+      if (!this.wreck) {
+        const st = this.steer * 1.6 * dt; this.a += st;
+        const c = Math.cos(st * 0.9), sn = Math.sin(st * 0.9), vx = this.vx; this.vx = vx * c - this.vy * sn; this.vy = vx * sn + this.vy * c;
+        if (this.nitroOn && this.nitro > 0) { this.vx += fx * 90 * dt; this.vy += fy * 90 * dt; this.nitro = Math.max(0, this.nitro - dt * 0.3); }
+      }
       this.vx *= 1 - 0.04 * dt; this.vy *= 1 - 0.04 * dt;
       this.x += this.vx * dt; this.y += this.vy * dt; w.wall(this, this.rad, 0.1);
       this.speed = Math.hypot(this.vx, this.vy); this.drifting = false; this.slip = 0; this.onRoad = true;
@@ -1201,9 +1218,10 @@ class Car {
     if (this.shield > 0) this.shield -= dt;
     if (this.inv > 0) this.inv -= dt;
     if (this.boost > 0) { this.boost -= dt; vmax *= 1.4; acc *= 2.6; }
-    // nitro : se recharge en roulant et en dérapant, se vide quand on l'utilise
-    if (this.nitroOn && this.nitro > 0 && this.spin <= 0) { vmax *= 1.28; acc *= 2; this.nitro = Math.max(0, this.nitro - dt * 0.32); }
-    else if (game.phase === "race") this.nitro = Math.min(1, this.nitro + dt * this.nitroM * (0.025 + (this.drifting ? 0.3 : 0) + (this.boost > 0 ? 0.1 : 0)));
+    // nitro : se gagne sur la piste (bouteilles, dérapages, aspiration, figures, destructions), très lente recharge sinon
+    if (this.draft > 0) { vmax *= 1.1; acc *= 1.3; } // aspiration : dans le sillage d'une voiture, on va plus vite
+    if (this.nitroOn && this.nitro > 0 && this.spin <= 0) { vmax *= 1.28; acc *= 2; this.nitro = Math.max(0, this.nitro - dt * 0.3); }
+    else if (game.phase === "race") this.nitro = Math.min(1, this.nitro + dt * this.nitroM * (0.006 + (this.drifting ? 0.16 : 0) + (this.draft > 0 ? 0.07 : 0)));
     if (this.slide > 0) { this.slide -= dt; grip *= 0.08; this.a += 4 * dt * Math.sign(vr || 1); }
     if (this.spin > 0) {
       this.spin -= dt; this.a += 11 * dt; vf -= vf * 2.5 * dt; vr -= vr * 2.5 * dt;
@@ -1248,17 +1266,24 @@ class Car {
     const fi = w.fracIdx(this), g = w.groundAt(fi, this.lat), want = (g - this.z) / dt, fb = w.bar[((Math.floor(fi) % w.N) + w.N) % w.N];
     if (!(g > -1e6) || want < this.vz - GZ * dt - 40) {
       this.air = true; this.airT = 0; this.vz = Math.min(this.vz, 200); this.toX = this.x; this.toY = this.y;
-      if (this.onBar) { const tf = Math.max(0.5, 2 * Math.max(0, this.vz) / GZ); this.rollV = this.onBar * Math.PI * 2 / tf; }
+      if (this.onBar) { this.vz = Math.max(this.vz, 165); const tf = 2 * this.vz / GZ; this.rollV = this.onBar * Math.PI * 2 / (tf * 0.8); this.rollA = 0; } // le tonneau se termine avant de toucher le sol
     } else { this.vz = clamp(want, -300, 300); this.z = g; }
     this.onBar = fb && this.z > 4 ? Math.sign(fb) : 0;
   }
+  // figures : un tour complet de tonneau ou de 360°, puis on s'arrête net ; si on atterrit avant, la figure se finit vite au sol
+  trickStep(dt) {
+    const T2 = Math.PI * 2, k = this.air ? 1 : 2.5;
+    if (this.rollV) { this.rollA += this.rollV * dt * k; if (!this.wreck && Math.abs(this.rollA) >= T2) { this.rollA = 0; this.rollV = 0; if (this.air) this.tricks.push("TONNEAU"); } }
+    if (this.spinV) { this.spinA += this.spinV * dt * k; if (!this.wreck && Math.abs(this.spinA) >= T2) { this.spinA = 0; this.spinV = 0; if (this.air) this.tricks.push("360°"); } }
+  }
   draw(c, t) {
     const zs = 1 + Math.max(0, this.z) / 150, zo = Math.max(0, this.z) * 0.3; // en l'air : plus grosse, ombre décalée
-    c.save(); c.translate(this.x, this.y); c.rotate(this.a); c.scale(this.scale * zs, this.scale * zs);
+    c.save(); c.translate(this.x, this.y); c.rotate(this.a + this.spinA); c.scale(this.scale * zs, this.scale * zs);
     if (this.z > -10) { c.fillStyle = "rgba(0,0,0,.3)"; rr(c, -this.m.len / 2 + 4 + zo, -this.m.wid / 2 + 5 + zo, this.m.len, this.m.wid, 8); c.fill(); }
     let col = this.color;
     if (this.star > 0) col = `hsl(${(t * 600) % 360},90%,60%)`;
-    if (this.inv > 0 && Math.floor(t * 20) % 2) c.globalAlpha = 0.45;
+    if (this.inv > 0 && !this.wreck && Math.floor(t * 20) % 2) c.globalAlpha = 0.45;
+    if (this.wreck) col = "#2a2522";
     drawCarShape(c, this.m, col, this.m.accent);
     c.globalAlpha = 1;
     c.restore();
@@ -1298,6 +1323,7 @@ class AI {
     car.brake = car.speed > target + 80;
     car.drift = curve > 1.3 && car.speed > target;
     if (jump) { car.throttle = 1; car.brake = false; car.drift = false; }
+    if (car.pi < 0) car.nitroOn = car.nitro > 0.05 && curve < 0.3 && (car.nitroOn || car.nitro > 0.45) && car.spin <= 0;
     if (car.item && car.roll <= 0 && car.pi < 0) {
       this.useT -= dt;
       const k = car.item.kind;
@@ -1500,22 +1526,60 @@ class Game {
     if (car.finished || car.spin > 0 || car.air) return;
     const j = this.world.safeIdx(car.idx), p = this.world.at(j, 0, {}); car.idx = j; car.x = p.x; car.y = p.y; car.a = p.a; car.vx = car.vy = 0; car.inv = 1.2; car.z = 0; car.vz = 0;
   }
+  // aspiration : la voiture juste derrière une autre profite de son sillage (plus de vitesse, et du N2O)
+  slipstream(dt) {
+    for (const c of this.cars) {
+      let on = false;
+      if (!c.air && c.speed > 220 && !c.finished) {
+        const fx = Math.cos(c.a), fy = Math.sin(c.a);
+        for (const o of this.cars) if (o !== c && !o.air) {
+          const dx = o.x - c.x, dy = o.y - c.y, along = dx * fx + dy * fy, side = Math.abs(dx * -fy + dy * fx);
+          if (along > 50 && along < 340 && side < 42 && Math.cos(o.a - c.a) > 0.8) { on = true; break; }
+        }
+      }
+      c.draftT = on ? c.draftT + dt : 0;
+      const was = c.draft > 0; c.draft = c.draftT > 0.35 ? 0.3 : Math.max(0, c.draft - dt); // il faut rester un peu dans le sillage
+      if (!was && c.draft > 0 && c.pi >= 0) { c.banner = c.banner || { txt: "ASPIRATION +N2O", t: 1 }; SND.puff(0.05, 1800, 0.4); }
+    }
+  }
   land(car, g) {
     const imp = -car.vz, flew = car.airT, dist = Math.hypot(car.x - car.toX, car.y - car.toY) / 10;
     car.z = g; car.vz = 0; car.air = false;
     if (imp > 170) { car.vx *= 0.96; car.vy *= 0.96; }
+    const tr = car.tricks; car.tricks = [];
+    if (car.wreck > 0) { // voiture détruite : elle retombe en vrac, fume et repart lentement
+      car.vx *= 0.25; car.vy *= 0.25; car.spin = Math.max(car.spin, 0.8); car.rollA = car.rollV = car.spinA = car.spinV = 0;
+      this.burst(car.x, car.y, 26, "#ff7a1e", 300, "flame"); if (car.pi >= 0) { SFX.boom(); this.cams[car.pi].shake = 12; }
+      return;
+    }
+    const gain = tr.length * 0.22 + (flew > 0.6 ? 0.1 : 0);
+    car.nitro = Math.min(1, car.nitro + gain * car.nitroM);
     if (car.pi >= 0) {
       this.cams[car.pi].shake = Math.min(12, imp / 28);
-      if (car.rollV) { car.nitro = Math.min(1, car.nitro + 0.3); car.banner = { txt: "TONNEAU ! +N2O", t: 1.5 }; SFX.lap(); }
-      else if (flew > 0.6) { car.nitro = Math.min(1, car.nitro + 0.15); car.banner = { txt: `SAUT DE ${Math.round(dist)} M ! +N2O`, t: 1.5 }; SFX.box(); }
+      if (tr.length) { car.banner = { txt: tr.join(" + ") + " ! +N2O", t: 1.6 }; SFX.lap(); }
+      else if (flew > 0.6) { car.banner = { txt: `SAUT DE ${Math.round(dist)} M ! +N2O`, t: 1.5 }; SFX.box(); }
       SFX.land(Math.min(1, imp / 260));
     }
     if (imp > 120) this.burst(car.x, car.y, 14, this.world.th.dust, imp);
-    car.rollA = 0; car.rollV = 0;
+  }
+  // destruction : percuter un rival par l'arrière (fort, ou avec la nitro) l'envoie valser
+  wreck(vic, att) {
+    if (vic.wreck > 0 || vic.inv > 0 || vic.star > 0 || vic.air || vic.finished || this.phase !== "race") return false;
+    if (vic.shield > 0) { vic.shield = 0; vic.inv = 0.6; this.burst(vic.x, vic.y, 18, "#50dcff", 220); return false; }
+    const sd = Math.random() < 0.5 ? -1 : 1, kx = -Math.sin(att.a) * sd * 120, ky = Math.cos(att.a) * sd * 120; // éjectée en avant et sur le côté
+    Object.assign(vic, { wreck: 2.6, air: true, airT: 0, vz: 150, toX: vic.x, toY: vic.y, inv: 3, tricks: [], rollA: 0, spinA: 0,
+      rollV: sd * Math.PI * 3 / (2 * 150 / GZ), spinV: rnd(-4, 4), vx: vic.vx * 0.6 + att.vx * 0.3 + kx, vy: vic.vy * 0.6 + att.vy * 0.3 + ky });
+    this.parts.push({ kind: "ring", x: vic.x, y: vic.y, vx: 0, vy: 0, life: 0.45, max: 0.45, size: 20, grow: 300, color: "#ffb000" });
+    this.burst(vic.x, vic.y, 40, "#ff7a1e", 380, "flame"); this.burst(vic.x, vic.y, 16, "#cfcfcf", 260);
+    att.nitro = Math.min(1, att.nitro + 0.35);
+    if (att.pi >= 0 || vic.pi >= 0) SFX.boom();
+    if (att.pi >= 0) { att.banner = { txt: "DESTRUCTION ! +N2O", t: 1.8 }; this.cams[att.pi].shake = 12; }
+    if (vic.pi >= 0) { vic.banner = { txt: "DÉTRUIT !", t: 2 }; this.cams[vic.pi].shake = 14; }
+    return true;
   }
   fall(car) { // tombée dans le ravin : elle repart juste après, sur la réception
     const w = this.world, j = (w.safeIdx(car.idx) + 4) % w.N, p = w.at(j, clamp(car.lat || 0, -R * 0.6, R * 0.6), {}), sp = 240;
-    Object.assign(car, { x: p.x, y: p.y, a: p.a, px: p.x, py: p.y, pa: p.a, idx: j, z: 0, vz: 0, air: false, rollA: 0, rollV: 0, inv: 1.6, spin: 0, vx: Math.cos(p.a) * sp, vy: Math.sin(p.a) * sp, speed: sp });
+    Object.assign(car, { x: p.x, y: p.y, a: p.a, px: p.x, py: p.y, pa: p.a, idx: j, z: 0, vz: 0, air: false, rollA: 0, rollV: 0, spinA: 0, spinV: 0, tricks: [], wreck: 0, inv: 1.6, spin: 0, vx: Math.cos(p.a) * sp, vy: Math.sin(p.a) * sp, speed: sp });
     if (car.pi >= 0) { car.banner = { txt: "CHUTE !", t: 1.6 }; SFX.boom(); this.cams[car.pi].shake = 10; }
     this.burst(p.x, p.y, 20, "#bfe6ff", 260);
   }
@@ -1551,8 +1615,10 @@ class Game {
     } else {
       this.time += dt;
       if (this.goT > 0) this.goT -= dt;
+      this.slipstream(dt);
       for (const car of this.cars) {
         if (car.roll > 0) car.roll -= dt;
+        if (car.wreck > 0) { car.wreck -= dt; if (Math.random() < 0.5) this.parts.push({ kind: "smoke", x: car.x + rnd(-10, 10), y: car.y + rnd(-10, 10), vx: rnd(-20, 20), vy: rnd(-20, 20), life: 0.9, max: 0.9, size: 8, grow: 30, color: "#3a3532" }); if (car.wreck <= 0) car.wreck = 0; }
         if (car.ai) car.ai.control(car, this, dt); else readInput(car, this);
         car.update(dt, this);
         this.progressOf(car);
@@ -1601,6 +1667,10 @@ class Game {
       const nx = dx / d, ny = dy / d, ma = a.mass, mb = b.mass, ov = rr2 - d;
       a.x -= nx * ov * mb / (ma + mb); a.y -= ny * ov * mb / (ma + mb); b.x += nx * ov * ma / (ma + mb); b.y += ny * ov * ma / (ma + mb);
       const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+      if (rv < -140) for (const [att, vic, sg] of [[a, b, 1], [b, a, -1]]) { // qui tape qui par l'arrière ?
+        const ahead = sg * (nx * Math.cos(att.a) + ny * Math.sin(att.a)), power = (att.nitroOn && att.nitro > 0) || att.boost > 0 || att.star > 0;
+        if (ahead > 0.72 && Math.cos(att.a - vic.a) > 0.4 && -rv > (power ? 140 : 240) && this.wreck(vic, att)) break;
+      }
       if (rv < 0) {
         const imp = -1.3 * rv / (1 / ma + 1 / mb);
         a.vx -= imp / ma * nx; a.vy -= imp / ma * ny; b.vx += imp / mb * nx; b.vy += imp / mb * ny;
@@ -1618,6 +1688,10 @@ class Game {
     for (const co of w.coins) {
       if (co.t > 0) { co.t -= dt; continue; }
       for (const c of this.cars) if (c.z < 25 && Math.hypot(c.x - co.x, c.y - co.y) < c.rad + 12) { co.t = 8; c.coins = Math.min(10, c.coins + 1); if (c.pi >= 0) SFX.coin(); break; }
+    }
+    for (const b of w.n2o) {
+      if (b.t > 0) { b.t -= dt; continue; }
+      for (const c of this.cars) if (c.z < 30 && Math.hypot(c.x - b.x, c.y - b.y) < c.rad + 16) { b.t = 10; c.nitro = Math.min(1, c.nitro + 0.12 * c.nitroM); if (c.pi >= 0) SFX.n2o(); break; }
     }
     for (const tr of w.traps) for (const c of this.cars) {
       if (c.z < 12 && Math.hypot(c.x - tr.x, c.y - tr.y) < c.rad + (tr.type === "huile" ? 30 : 22)) {
@@ -1732,6 +1806,11 @@ class Game {
     for (const tr of w.traps) if (vis(tr)) {
       if (tr.type === "huile") { ctx.fillStyle = "rgba(10,10,14,.85)"; ctx.beginPath(); ctx.ellipse(tr.x, tr.y, 34, 24, tr.a, 0, 7); ctx.fill(); ctx.fillStyle = "rgba(120,90,255,.35)"; ctx.beginPath(); ctx.ellipse(tr.x - 8, tr.y - 6, 12, 6, tr.a, 0, 7); ctx.fill(); }
       else { ctx.save(); ctx.translate(tr.x, tr.y); ctx.rotate(tr.a + Math.PI / 2); ctx.fillStyle = "#333"; ctx.fillRect(-26, -6, 52, 12); ctx.fillStyle = "#e8e8e8"; for (let k = -24; k <= 20; k += 8) { ctx.beginPath(); ctx.moveTo(k, -6); ctx.lineTo(k + 4, -16); ctx.lineTo(k + 8, -6); ctx.fill(); ctx.beginPath(); ctx.moveTo(k, 6); ctx.lineTo(k + 4, 16); ctx.lineTo(k + 8, 6); ctx.fill(); } ctx.restore(); }
+    }
+    for (const b of w.n2o) if (b.t <= 0 && vis(b)) {
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.sin(t * 3 + b.i) * 0.4);
+      ctx.fillStyle = "#1f6fff"; rr(ctx, -7, -13, 14, 26, 5); ctx.fill(); ctx.fillStyle = "#cfe6ff"; ctx.fillRect(-4, -17, 8, 5);
+      ctx.fillStyle = "#fff"; ctx.font = "800 7px 'Plus Jakarta Sans', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N2O", 0, 1); ctx.restore();
     }
     for (const co of w.coins) if (co.t <= 0 && vis(co)) {
       const sx = Math.abs(Math.cos(t * 4 + co.i));
@@ -2377,6 +2456,9 @@ class Scene3D {
     const gold = keep(new T.MeshPhongMaterial({ color: 0xffc928, emissive: 0x553300, shininess: 90, specular: 0xffffff }));
     const coinGeo = keep(new T.CylinderGeometry(9, 9, 2.5, 18)); coinGeo.rotateX(Math.PI / 2);
     this.coins = w.coins.map(c => add(coinGeo, gold, c.x, 14, c.y));
+    const nTex = keep(canvasTex(64, 128, (c, W, H) => { c.fillStyle = "#1f6fff"; c.fillRect(0, 0, W, H); c.fillStyle = "#cfe6ff"; c.fillRect(0, 0, W, 18); c.fillStyle = "#fff"; c.font = "800 26px 'Plus Jakarta Sans', Impact, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.save(); c.translate(W / 2, H / 2 + 8); c.rotate(-Math.PI / 2); c.fillText("N2O", 0, 0); c.restore(); }));
+    const nMat = keep(new T.MeshPhongMaterial({ map: nTex, emissive: 0x0a2a66, shininess: 100, specular: 0xffffff })), nGeo = keep(new T.CylinderGeometry(6, 6, 24, 14));
+    this.n2o = w.n2o.map(b => add(nGeo, nMat, b.x, 18, b.y));
     const oilMat = layer(keep(new T.MeshPhongMaterial({ color: 0x0b0b10, shininess: 120, specular: 0x8a6aff, transparent: true, opacity: 0.92 })), 6);
     const oilGeo = keep(new T.CircleGeometry(1, 20)); oilGeo.rotateX(-Math.PI / 2);
     for (const tr of w.traps) {
@@ -2560,7 +2642,7 @@ class Scene3D {
       o.roll += (clamp(-lat / 900 - yawRate * 0.05, -0.1, 0.1) - o.roll) * Math.min(1, dt * 6);
       const acc = (vf0 - o.vf) / Math.max(dt, 1e-3); o.vf = vf0;
       o.pitch += (clamp(acc / 9000, -0.045, 0.035) - o.pitch) * Math.min(1, dt * 5);
-      r.rotation.set(0, -c.a, 0);
+      r.rotation.set(0, -c.a - c.spinA, 0);
       const slopeT = c.air ? clamp(Math.atan2(c.vz, Math.max(150, c.speed)) * 0.8, -0.5, 0.45) : Math.atan2(c.vz, Math.max(150, c.speed));
       o.slope += (slopeT - o.slope) * Math.min(1, dt * (c.air ? 4 : 14));
       o.lift.rotation.set(o.roll + c.rollA, 0, o.pitch + o.slope);
@@ -2570,8 +2652,9 @@ class Scene3D {
       for (const b of o.brakes) b.visible = braking || night;
       for (const b of o.brakes) b.scale.setScalar(braking ? 11 : 6);
       r.scale.setScalar(c.scale);
-      r.visible = !(c.inv > 0 && Math.floor(gt * 20) % 2);
-      if (c.star > 0) { o.paintM.color.setHSL((gt * 1.6) % 1, 0.9, 0.55); o.paintM.emissive.setHSL((gt * 1.6) % 1, 0.9, 0.25); }
+      r.visible = !(c.inv > 0 && !c.wreck && Math.floor(gt * 20) % 2);
+      if (c.wreck > 0) { o.paintM.color.setRGB(0.1, 0.09, 0.085); o.paintM.emissive.setRGB(0.18 * (0.5 + 0.5 * Math.sin(gt * 20)), 0.04, 0); }
+      else if (c.star > 0) { o.paintM.color.setHSL((gt * 1.6) % 1, 0.9, 0.55); o.paintM.emissive.setHSL((gt * 1.6) % 1, 0.9, 0.25); }
       else if (o.paintM.emissive.r || o.paintM.emissive.g || o.paintM.emissive.b) { o.paintM.color.copy(o.base); o.paintM.emissive.setRGB(0, 0, 0); }
       o.shield.visible = c.shield > 0;
       const vf = c.vx * fx + c.vy * fy;
@@ -2603,6 +2686,7 @@ class Scene3D {
     this.boxMat.color.setHSL(hue, 0.85, 0.6);
     w.boxes.forEach((b, k) => { const m = this.boxes[k]; m.visible = b.t <= 0; m.rotation.set(t * 0.9, t * 1.4, 0); m.position.y = 22 + Math.sin(t * 3 + k) * 3; });
     w.coins.forEach((c, k) => { const m = this.coins[k]; m.visible = c.t <= 0; m.rotation.y = t * 4 + c.i; });
+    w.n2o.forEach((b, k) => { const m = this.n2o[k]; m.visible = b.t <= 0; m.rotation.set(0, t * 3 + b.i, Math.sin(t * 2.4 + b.i) * 0.35); m.position.y = 18 + Math.sin(t * 3 + k) * 3; });
     this.boostTex.offset.x = -(t * 1.6 % 1);
     if (this.fallTex) this.fallTex.offset.y = (t * 1.3) % 1;
     for (const wt of this.waterTex || []) wt.offset.x = (t * 0.03) % 1;
@@ -2660,7 +2744,8 @@ class Scene3D {
         cs.yaw = car.a;
       } else {
         const d = (mode === 1 ? 50 + car.speed * 0.022 : 74 + car.speed * 0.035) + cs.push * 16, h = mode === 1 ? 17 + car.speed * 0.004 : 28 + car.speed * 0.008;
-        const zc = Math.max(car.z, -40);
+        cs.zs = cs.zs == null ? car.z : cs.zs + (Math.max(car.z, -40) - cs.zs) * Math.min(1, dt * 7); // hauteur lissée : pas d'à-coups sur les tremplins
+        const zc = cs.zs;
         cs.pos.set(car.x - cy * d, h + zc * 0.85 + (car.air ? 12 : 0), car.y - sy * d);
         if (mode === 1) { lookD = 70; lookY = 10; }
         lookY += zc * 0.9;
@@ -3502,8 +3587,8 @@ function renderMenu() {
     row.className = "pilot";
     const pc = (v, a, b) => Math.round(35 + 65 * clamp((v - a) / (b - a), 0, 1)) + "%";
     row.innerHTML = `<span class="n" style="color:${PCOLORS[p]}">J${p + 1}</span><canvas></canvas><span class="m"><b>${m.name}</b>`
-      + `<span class="stats"><i>Vitesse</i><span class="bar"><span style="--w:${pc(m.vmax, 552, 644)}"></span></span>`
-      + `<i>Accél.</i><span class="bar a"><span style="--w:${pc(m.accel, 374, 517)}"></span></span>`
+      + `<span class="stats"><i>Vitesse</i><span class="bar"><span style="--w:${pc(m.vmax, Math.min(...CARS.map(c => c.vmax)) - 8, Math.max(...CARS.map(c => c.vmax)))}"></span></span>`
+      + `<i>Accél.</i><span class="bar a"><span style="--w:${pc(m.accel, Math.min(...CARS.map(c => c.accel)) - 8, Math.max(...CARS.map(c => c.accel)))}"></span></span>`
       + `<i>Tenue</i><span class="bar t"><span style="--w:${pc(m.turn, 2.8, 3.9)}"></span></span></span></span>`
       + `<button class="arrow" id="prev${p}" aria-label="Véhicule précédent">‹</button><button class="arrow" id="next${p}" aria-label="Véhicule suivant">›</button>`;
     g.appendChild(row);
