@@ -89,6 +89,28 @@ details summary { cursor: pointer; font-weight: 700; }
 details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 1.45; }
 .result h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(2rem, 6vw, 3.2rem); margin: 0; color: var(--fg); }
 .rank { display: grid; gap: 6px; }
+/* bloc « essayez-les en vrai » : carte orange SAPY, bien visible après la course */
+.cta { position: relative; overflow: hidden; border-radius: 22px; padding: 18px; display: grid; gap: 10px;
+  background: linear-gradient(135deg, rgba(232,120,78,.22), rgba(11,79,135,.35)), var(--panel); border: 1px solid rgba(232,120,78,.55);
+  box-shadow: 0 20px 50px -20px rgba(232,120,78,.55); }
+.cta::after { content: ""; position: absolute; inset: -40% -10% auto auto; width: 60%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(232,120,78,.35), transparent 65%); pointer-events: none; }
+.cta-k { font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: var(--rose); font-weight: 700; }
+.cta h3 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: clamp(1.4rem, 4.5vw, 2rem); line-height: 1.1; }
+.cta h3 em { color: var(--amber); }
+.cta p { margin: 0; color: #CDD2D8; font-size: .95rem; }
+.cta small { color: var(--muted); font-size: .78rem; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 10px; position: relative; z-index: 1; }
+.cta-btn, .cta-map { display: inline-flex; align-items: center; justify-content: center; gap: .5em; min-height: 52px; padding: 0 22px; border-radius: 999px; text-decoration: none; font-weight: 800; letter-spacing: .06em; }
+.cta-btn { flex: 1 1 220px; background: var(--amber); color: var(--on-amber); font-size: 1.05rem; text-transform: uppercase; animation: ctaPulse 2.2s ease-in-out infinite; }
+.cta-map { flex: 1 1 180px; border: 1px solid var(--line-2); color: var(--fg); background: rgba(14,17,20,.4); }
+@keyframes ctaPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(232,120,78,.55); } 50% { box-shadow: 0 0 0 10px rgba(232,120,78,0); } }
+@media (prefers-reduced-motion: reduce) { .cta-btn { animation: none; } }
+/* téléphone en paysage : classement à gauche, invitation SAPY à droite, tout visible sans défiler */
+body.land #results .result { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-areas: "t c" "r c" "b c"; align-items: start; max-width: none; }
+  body.land #results h2 { grid-area: t; font-size: 1.8rem; } body.land #results .rank { grid-area: r; } body.land #results .row2 { grid-area: b; } body.land #results .cta { grid-area: c; }
+  body.land #results .rank div { padding: 5px 10px; } body.land #results .row2 button { padding: 10px; font-size: .9rem; }
+  body.land #results .cta { padding: 14px; gap: 8px; } body.land #results .cta h3 { font-size: 1.35rem; } body.land #results .cta-btn, body.land #results .cta-map { min-height: 46px; flex-basis: 100%; }
+
 .rank div { display: grid; grid-template-columns: 2.2em 14px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: var(--panel-2); font-variant-numeric: tabular-nums; }
 .rank div.me { outline: 2px solid var(--amber); }
 .rank .dot { width: 14px; height: 14px; border-radius: 50%; }
@@ -174,6 +196,17 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
     <div class="row2">
       <button class="go" id="again">Rejouer</button>
       <button class="ghost" id="toMenu">Menu</button>
+      <button class="ghost" id="quit">Quitter</button>
+    </div>
+    <div class="cta">
+      <div class="cta-k">Consortium SAPY · Lomé</div>
+      <h3>Vous avez aimé&nbsp;? Essayez ces véhicules <em>en vrai</em>.</h3>
+      <p>Jetour, Soueast et JMC vous attendent au showroom d'Agbalépédogan pour un essai routier.</p>
+      <div class="cta-row">
+        <a class="cta-btn" id="ctaSite" href="https://claude.ai/artifact/1t5rNgAsQyjQ61tsaShEVx#contact" target="_blank" rel="noopener">Visiter Consortium SAPY <span aria-hidden="true">→</span></a>
+        <a class="cta-map" id="ctaMap" href="https://www.google.com/maps/search/?api=1&amp;query=Consortium+SAPY+Agbal%C3%A9p%C3%A9dogan+Lom%C3%A9+Togo" target="_blank" rel="noopener">📍 Itinéraire Google Maps</a>
+      </div>
+      <small>2985, Avenue de la Chance, face à la station Total GTA, Agbalépédogan, Lomé · (+228) 22 50 51 50</small>
     </div>
   </div>
 </div>
@@ -337,7 +370,76 @@ function rr(c, x, y, w, h, r) {
 // Sons (générés, aucun fichier)
 // =====================================================================
 let AC = null;
-function audioOn() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch (e) { AC = null; } }
+// Moteur V6 de 400 ch, modélisé échantillon par échantillon : 6 explosions par cycle (une tous les 120° de vilebrequin),
+// deux bancs de 3 cylindres vers deux lignes d'échappement qui résonnent, croisement en X, silencieux, rupteur et pétarades
+const V6SRC = `
+class V6 {
+  constructor(sr, seed) {
+    this.sr = sr; this.th = 0; this.rpm = 900; this.thr = 0; this.pul = []; this.seed = seed || 1;
+    this.off = [0, 3, -2, 1.5, -1, 2.5]; this.var = [1, 0.93, 1.05, 0.97, 1.02, 0.95];
+    const mk = n => ({ b: new Float32Array(n), n, i: 0, lp: 0 });
+    this.pipe = [mk(Math.round(sr * 0.0047)), mk(Math.round(sr * 0.0056))];
+    this.hdr = [mk(Math.round(sr * 0.0011)), mk(Math.round(sr * 0.0013))];
+    this.muf = [0, 0]; this.muf2 = [0, 0]; this.dc = [0, 0]; this.dcx = [0, 0]; this.lim = 0; this.cnt = 0;
+  }
+  rnd() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647 * 2 - 1; }
+  tube(p, x, refl, damp) { const j = (p.i + 1) % p.n, out = p.b[j]; p.lp += (out - p.lp) * damp; const y = x + refl * p.lp; p.b[p.i] = y; p.i = j; return y; }
+  render(L, R, n, rpmT, thrT) {
+    const sr = this.sr;
+    for (let k = 0; k < n; k++) {
+      this.rpm += (rpmT - this.rpm) * 0.0012; this.thr += (thrT - this.thr) * 0.002;
+      const rpm = this.rpm, rn = Math.min(1, Math.max(0, (rpm - 900) / 6500)), thr = this.thr;
+      const prev = this.th; this.th += rpm / 60 * 360 / sr; if (this.th >= 720) this.th -= 720;
+      for (let c = 0; c < 6; c++) {
+        const a = c * 120 + this.off[c]; let cross = prev < a && this.th >= a; if (prev > this.th && (a > prev || a <= this.th)) cross = true;
+        if (!cross) continue;
+        this.cnt++;
+        if (rn > 0.985 && thr > 0.6 && (this.cnt % 3 === 0)) continue; // rupteur : ratés en haut du compte-tours
+        const load = 0.16 + 0.84 * thr, amp = load * this.var[c] * (1 + this.rnd() * 0.07);
+        const tau = sr * (0.00035 + 0.0012 * (1 - rn)) * (1 + this.rnd() * 0.1);
+        this.pul.push({ c, t: 0, a: amp, tau });
+        // en lâchant les gaz à haut régime : pétarades d'échappement
+        if (thr < 0.12 && rn > 0.35 && Math.random() < 0.05 + rn * 0.06) this.pul.push({ c, t: -Math.floor(sr * (0.004 + Math.random() * 0.01)), a: 1.6 + Math.random(), tau: sr * 0.0004, pop: 1 });
+      }
+      let bl = 0, br = 0;
+      for (let q = this.pul.length - 1; q >= 0; q--) {
+        const p = this.pul[q]; p.t++; if (p.t < 0) continue;
+        const x = p.t / p.tau; if (x > 9) { this.pul.splice(q, 1); continue; }
+        // onde de pression de l'ouverture d'échappement + souffle turbulent
+        const v = p.a * (x * Math.exp(1 - x)) + p.a * (p.pop ? 0.9 : 0.5) * this.rnd() * Math.exp(-x * 0.5);
+        if (p.c % 2 === 0) bl += v; else br += v;
+      }
+      // collecteurs puis lignes d'échappement qui résonnent
+      bl = this.tube(this.hdr[0], bl, 0.35, 0.6); br = this.tube(this.hdr[1], br, 0.35, 0.6);
+      let el = this.tube(this.pipe[0], bl + 0.22 * br, -0.62, 0.32 + 0.25 * thr), er = this.tube(this.pipe[1], br + 0.22 * bl, -0.62, 0.32 + 0.25 * thr);
+      // silencieux : passe-bas qui s'ouvre avec la charge et le régime
+      const fc = 1100 + 5200 * (0.25 + 0.75 * thr) * (0.35 + 0.65 * rn), g = 1 - Math.exp(-6.2832 * fc / sr);
+      this.muf[0] += (el - this.muf[0]) * g; this.muf[1] += (er - this.muf[1]) * g;
+      this.muf2[0] += (this.muf[0] - this.muf2[0]) * g; this.muf2[1] += (this.muf[1] - this.muf2[1]) * g;
+      // suppression de la composante continue
+      const ol = this.muf2[0] - this.dcx[0] + 0.995 * this.dc[0]; this.dcx[0] = this.muf2[0]; this.dc[0] = ol;
+      const orr = this.muf2[1] - this.dcx[1] + 0.995 * this.dc[1]; this.dcx[1] = this.muf2[1]; this.dc[1] = orr;
+      L[k] = ol * 0.55; R[k] = orr * 0.55;
+    }
+  }
+}`;
+const V6PROC = V6SRC + `
+class V6Proc extends AudioWorkletProcessor {
+  static get parameterDescriptors() { return [{ name: "rpm", defaultValue: 900, minValue: 300, maxValue: 9000 }, { name: "thr", defaultValue: 0, minValue: 0, maxValue: 1 }]; }
+  constructor() { super(); this.e = new V6(sampleRate, 1 + Math.floor(Math.random() * 1e6)); }
+  process(ins, outs, p) { const o = outs[0]; this.e.render(o[0], o[1] || o[0], o[0].length, p.rpm[0], p.thr[0]); return true; }
+}
+registerProcessor("v6", V6Proc);`;
+let V6READY = false, V6LOAD = null;
+function audioOn() {
+  try {
+    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    if (!V6LOAD && AC.audioWorklet) V6LOAD = AC.audioWorklet.addModule(URL.createObjectURL(new Blob([V6PROC], { type: "application/javascript" }))).then(() => { V6READY = true; }).catch(() => {});
+  } catch (e) { AC = null; }
+}
+// le son se prépare dès le premier toucher dans le menu, pour être prêt au départ
+addEventListener("pointerdown", () => audioOn(), { once: true });
 function beep(f, dur, type = "square", vol = 0.08, f2 = null) {
   if (!AC) return;
   try {
@@ -777,6 +879,7 @@ function resize() {
   if (ROT) { stageEl.style.width = H + "px"; stageEl.style.height = W + "px"; stageEl.style.transform = `translateX(${W}px) rotate(90deg)`; }
   else { stageEl.style.width = stageEl.style.height = stageEl.style.transform = ""; }
   VW = ROT ? H : W; VH = ROT ? W : H;
+  document.body.classList.toggle("land", VW >= 700 && VH <= 560);
   cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   if (R3) { R3.setPixelRatio(Math.min(quality.r3, window.devicePixelRatio || 1)); R3.setSize(VW, VH, false); }
   if (game) game.layout();
@@ -2028,8 +2131,8 @@ const SND = {
       // bus : effets -> compresseur -> haut-parleurs ; la musique a son propre volume, doux
       const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.2;
       const master = AC.createGain(); master.gain.value = 0; master.gain.setTargetAtTime(1, AC.currentTime, 0.15);
-      comp.connect(master); master.connect(AC.destination);
-      const fx = AC.createGain(); fx.gain.value = 1; fx.connect(comp);
+      const hpm = AC.createBiquadFilter(); hpm.type = "highpass"; hpm.frequency.value = 38; hpm.Q.value = 0.7; comp.connect(hpm); hpm.connect(master); master.connect(AC.destination);
+      const fx = AC.createGain(); fx.gain.value = 0.85; fx.connect(comp);
       const noise = (b, f, q, type = "bandpass", dest = fx) => {
         const s = AC.createBufferSource(); s.buffer = b; s.loop = true;
         const bp = AC.createBiquadFilter(); bp.type = type; bp.frequency.value = f; bp.Q.value = q;
@@ -2037,67 +2140,58 @@ const SND = {
         return { s, bp, g };
       };
       const pan = v => { if (!AC.createStereoPanner) return null; const p = AC.createStereoPanner(); p.pan.value = v; return p; };
-      // forme d'onde d'un 4 cylindres : 2e harmonique forte, harmoniques impaires pour le grain
-      const im = new Float32Array([0, 1, 0.95, 0.42, 0.62, 0.3, 0.34, 0.14, 0.2, 0.09, 0.12, 0.05, 0.07, 0.03]);
-      const wave = AC.createPeriodicWave(new Float32Array(im.length), im);
-      const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 2.2); }
+      // réverbération courte : l'échappement résonne contre les tribunes et les murs
+      const ir = AC.createBuffer(2, Math.floor(sr * 0.9), sr);
+      for (let ch = 0; ch < 2; ch++) { const x = ir.getChannelData(ch); for (let i = 0; i < x.length; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / x.length, 3.2) * (i < sr * 0.012 ? i / (sr * 0.012) : 1); }
+      const verb = AC.createConvolver(); verb.buffer = ir; const verbG = AC.createGain(); verbG.gain.value = 0.22; verb.connect(verbG); verbG.connect(fx);
+      const bq = (type, f, q, gain) => { const b = AC.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; if (gain !== undefined) b.gain.value = gain; return b; };
+      const V6F = V6READY ? null : new Function(V6SRC + "; return V6;")();
       const engine = (vol, p) => {
-        const out = AC.createGain(); out.gain.value = 0;
+        let src, set;
+        if (V6READY) {
+          src = new AudioWorkletNode(AC, "v6", { numberOfInputs: 0, outputChannelCount: [2] });
+          const pr = src.parameters.get("rpm"), pt = src.parameters.get("thr");
+          set = (r, th, t) => { pr.setTargetAtTime(r, t, 0.02); pt.setTargetAtTime(th, t, 0.02); };
+        } else { // repli pour les navigateurs sans AudioWorklet
+          const e = new V6F(AC.sampleRate, 1 + Math.floor(Math.random() * 1e6)), st = { r: 900, th: 0 };
+          src = AC.createScriptProcessor(1024, 0, 2);
+          src.onaudioprocess = ev => { const b = ev.outputBuffer; e.render(b.getChannelData(0), b.getChannelData(1), b.length, st.r, st.th); };
+          set = (r, th) => { st.r = r; st.th = th; };
+        }
+        // égalisation : on retire l'infra-grave, on garde la rondeur du V6 et la rugosité de l'échappement sous charge
+        const hp1 = bq("highpass", 62, 0.7), hp2 = bq("highpass", 62, 0.7), body = bq("peaking", 170, 0.9, 4), rasp = bq("peaking", 1300, 0.8, 0), air = bq("highshelf", 5000, 0.7, -6);
         const sh = AC.createWaveShaper(); sh.curve = curve; sh.oversample = "2x";
-        const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 600; lp.Q.value = 0.9;
-        const body = AC.createOscillator(); body.setPeriodicWave(wave); const bodyG = AC.createGain(); bodyG.gain.value = 0.55;
-        const body2 = AC.createOscillator(); body2.setPeriodicWave(wave); body2.detune.value = 9; const body2G = AC.createGain(); body2G.gain.value = 0.28; // léger battement : le moteur « vibre »
-        const rasp = AC.createOscillator(); rasp.type = "sawtooth"; const rbp = AC.createBiquadFilter(); rbp.type = "bandpass"; rbp.Q.value = 2.2; const raspG = AC.createGain(); raspG.gain.value = 0;
-        const whine = AC.createOscillator(); whine.type = "triangle"; const whineG = AC.createGain(); whineG.gain.value = 0;
-        // combustion : bruit filtré, modulé au rythme des explosions
-        const cn = AC.createBufferSource(); cn.buffer = white; cn.loop = true; const cbp = AC.createBiquadFilter(); cbp.type = "bandpass"; cbp.Q.value = 1.4;
-        const am = AC.createGain(); am.gain.value = 0.5; const lfo = AC.createOscillator(); lfo.type = "square"; const lfoG = AC.createGain(); lfoG.gain.value = 0.5; const combG = AC.createGain(); combG.gain.value = 0.18;
-        lfo.connect(lfoG); lfoG.connect(am.gain); cn.connect(cbp); cbp.connect(am); am.connect(combG);
-        body.connect(bodyG); body2.connect(body2G); rasp.connect(rbp); rbp.connect(raspG);
-        for (const g of [bodyG, body2G, raspG, combG]) g.connect(sh);
-        sh.connect(lp); lp.connect(out); whine.connect(whineG); whineG.connect(out);
+        const out = AC.createGain(); out.gain.value = 0;
+        src.connect(hp1); hp1.connect(hp2); hp2.connect(body); body.connect(rasp); rasp.connect(air); air.connect(sh); sh.connect(out);
         const pn = pan(p || 0); if (pn) { out.connect(pn); pn.connect(fx); } else out.connect(fx);
-        for (const o of [body, body2, rasp, whine, lfo]) { o.frequency.value = 30; o.start(); srcs.push(o); }
-        cn.start(0, Math.random()); srcs.push(cn);
-        return { out, lp, body, body2, rasp, rbp, raspG, whine, whineG, lfo, cbp, combG, pn, vol, load: 0, gear: 0, cut: 0, popT: 0 };
+        out.connect(verb);
+        if (src.disconnect) srcs.push({ stop: () => { try { src.disconnect(); if (src.onaudioprocess) src.onaudioprocess = null; } catch (e) {} } });
+        // admission : le souffle du filtre à air quand on écrase la pédale
+        const ia = noise(white, 900, 1.2, "bandpass", out);
+        return { out, set, rasp, ia, pn, vol, load: 0 };
       };
+      const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 1.6) / Math.tanh(1.6); }
       const n1 = Math.max(1, n);
       const engines = [], tyres = [], winds = [], grav = [];
       for (let k = 0; k < n; k++) {
         const p = n === 1 ? 0 : n === 2 ? (k ? 0.45 : -0.45) : [-0.6, 0.6, -0.3, 0.3][k];
-        engines.push(engine(0.5 / Math.sqrt(n1), p));
+        engines.push(engine(0.55 / Math.sqrt(n1), p));
         tyres.push(noise(white, 2300, 7)); winds.push(noise(buf, 900, 0.6, "lowpass")); grav.push(noise(white, 700, 0.8));
       }
-      const rival = n === 1 ? engine(0.32, 0) : null;
+      const rival = n === 1 ? engine(0.4, 0) : null;
       const music = cfg.music !== false ? this.music(comp) : null;
       this.nodes = { roar: noise(buf, 650, 0.5), cheer: noise(buf, 2300, 2.2), engines, tyres, winds, grav, rival, music, master, srcs, white, fx };
     } catch (e) { this.nodes = null; }
   },
-  // petite détonation d'échappement (au passage de rapport ou en lâchant l'accélérateur)
-  pop(e, t, vol) {
-    try {
-      const s = AC.createBufferSource(); s.buffer = this.nodes.white;
-      const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 500 + Math.random() * 700;
-      const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + 0.07);
-      s.connect(f); f.connect(g); g.connect(e.pn || this.nodes.fx); s.start(t, Math.random()); s.stop(t + 0.09);
-    } catch (err) {}
-  },
   drive(e, t, car, vol, mute, dop) {
-    const rpmN = clamp((car.rpm - 0.25) / 0.79, 0, 1.06), f = (800 + rpmN * 6600) / 30 * (dop || 1);
-    const want = car.spin > 0 || car.finished ? 0.15 : car.shift > 0 ? 0.05 : car.throttle;
-    e.load += (want - e.load) * 0.2;
-    if (car.gear !== e.gear) { if (car.gear > e.gear && !mute && vol > 0.05) this.pop(e, t + 0.02, 0.22 * vol); e.gear = car.gear; }
-    // en lâchant les gaz à haut régime : quelques pétarades
-    if (!mute && e.load < 0.2 && rpmN > 0.45 && t > e.popT) { e.popT = t + 0.05 + Math.random() * 0.25; if (Math.random() < 0.45) this.pop(e, t, 0.12 * vol * rpmN); }
-    for (const o of [e.body, e.body2, e.rasp, e.lfo]) o.frequency.setTargetAtTime(f, t, 0.03);
-    e.rbp.frequency.setTargetAtTime(f * (3 + e.load * 1.6), t, 0.05);
-    e.cbp.frequency.setTargetAtTime(Math.min(4000, f * 4.5), t, 0.05);
-    e.whine.frequency.setTargetAtTime(120 + car.speed * 1.9, t, 0.05);
-    e.whineG.gain.setTargetAtTime(0.012 * clamp(car.speed / 400, 0, 1), t, 0.1);
-    e.raspG.gain.setTargetAtTime(0.08 + 0.32 * e.load, t, 0.05);
-    e.combG.gain.setTargetAtTime(0.1 + 0.2 * e.load, t, 0.05);
-    e.lp.frequency.setTargetAtTime(380 + (600 + 2600 * e.load) * (0.35 + 0.65 * rpmN), t, 0.05);
-    e.out.gain.setTargetAtTime(mute ? 0 : vol * e.vol * (0.42 + 0.58 * e.load) * (0.75 + 0.25 * rpmN), t, 0.06);
+    const rpmN = clamp((car.rpm - 0.25) / 0.79, 0, 1.06), rpm = (900 + Math.min(1, rpmN) * 6500 + (rpmN > 1 ? 80 : 0)) * (dop || 1);
+    const want = car.spin > 0 || car.finished ? 0.1 : car.shift > 0 ? 0 : car.throttle;
+    e.load += (want - e.load) * 0.25;
+    e.set(rpm, e.load, t);
+    e.rasp.gain.setTargetAtTime(e.load * 5 * (0.4 + 0.6 * Math.min(1, rpmN)), t, 0.05);
+    e.ia.g.gain.setTargetAtTime(mute ? 0 : 0.05 * e.load * (0.3 + 0.7 * Math.min(1, rpmN)), t, 0.05);
+    e.ia.bp.frequency.setTargetAtTime(500 + rpmN * 1600, t, 0.05);
+    e.out.gain.setTargetAtTime(mute ? 0 : vol * e.vol * (0.55 + 0.45 * e.load) * (0.7 + 0.3 * Math.min(1, rpmN)), t, 0.05);
   },
   update(game) {
     const n = this.nodes; if (!n || !AC) return;
@@ -2413,6 +2507,9 @@ function buildMenu() {
   $("go").onclick = startRace;
   $("again").onclick = startRace;
   $("toMenu").onclick = toMenu;
+  $("quit").onclick = () => { try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {} toMenu(); };
+  // liens vers le site : si la page ne peut pas ouvrir d'onglet, on ouvre dans la même fenêtre
+  for (const id of ["ctaSite", "ctaMap"]) $(id).addEventListener("click", ev => { ev.preventDefault(); let w = null; try { w = window.open($(id).href, "_blank"); if (w) w.opener = null; } catch (e) {} if (!w) location.href = $(id).href; });
   $("pauseBtn").onclick = () => togglePause(true);
   $("resume").onclick = () => togglePause(false);
   $("quit").onclick = () => { togglePause(false); toMenu(); };
