@@ -191,7 +191,7 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
 // =====================================================================
 // Données du jeu
 // =====================================================================
-const R = 92, KERB = 10, GRASS = 150, TEX = 0.5;
+const R = 100, KERB = 10, GRASS = 150, TEX = 0.5;
 const TRACKS = [
   { name: "Nyékonakpoè", desc: "Rapide, avenues bordées d'arbres",
     pts: [[500,700],[1500,450],[2700,500],[3600,700],[3800,1400],[3200,1700],[2500,1500],[1900,1800],[2300,2300],[3400,2200],[3700,2650],[2000,2750],[900,2600],[450,1800]],
@@ -271,6 +271,8 @@ const ITEM_TABLE = [
   { verte: 2, rouge: 3, turbo: 3, triple: 2, bombe: 2, etoile: 1, eclair: 1 },
   { rouge: 3, triple: 3, etoile: 3, eclair: 2, turbo: 2, bombe: 1 },
 ];
+// Boîte automatique à 6 rapports : vitesse haute de chaque rapport (part de la vitesse maxi)
+const GEAR_TOP = [0.25, 0.41, 0.57, 0.72, 0.86, 1.0];
 const PCOLORS = ["#E8784E", "#6FAEE6", "#4FD1B5", "#F2A03D"];
 const BOT_NAMES = ["Turbo Tom", "Lola Drift", "Max Vitesse", "Zoé Nitro", "Rico Rapido", "Nina Gomme"];
 
@@ -616,7 +618,7 @@ class Car {
     this.idx = 0; this.lap = 0; this.cp = 1; this.progress = 0; this.finished = false; this.ftime = null;
     this.item = null; this.roll = 0; this.coins = 0;
     this.spin = 0; this.shield = 0; this.star = 0; this.boost = 0; this.shrink = 0; this.slide = 0; this.inv = 0;
-    this.throttle = 0; this.brake = false; this.steer = 0; this.drift = false; this.nitro = 0.35; this.nitroOn = false;
+    this.throttle = 0; this.brake = false; this.steer = 0; this.drift = false; this.nitro = 0.35; this.nitroOn = false; this.gear = 0; this.shift = 0; this.rpm = 0.25;
     this.ai = null; this.skid = null; this.lapStart = 0; this.bestLap = null; this.wrong = 0;
   }
   get scale() { return this.shrink > 0 ? 0.6 : 1; }
@@ -645,14 +647,26 @@ class Car {
     if (this.spin > 0) {
       this.spin -= dt; this.a += 11 * dt; vf -= vf * 2.5 * dt; vr -= vr * 2.5 * dt;
     } else {
-      if (this.throttle > 0 && vf < vmax) vf += acc * this.throttle * dt;
-      if (this.brake) { if (vf > 30) vf -= acc * 1.8 * dt; else if (vf > -vmax * 0.35) vf -= acc * 0.6 * dt; }
-      if (!this.throttle && !this.brake) vf -= vf * 0.9 * dt;
+      // moteur et boîte : la poussée dépend du rapport engagé et du régime, avec une courte coupure à chaque passage
+      const vb = m.vmax * (1 + this.coins * 0.02), gt = GEAR_TOP.map(f => f * vb * 1.02);
+      if (this.shift > 0) this.shift -= dt;
+      else if (this.gear < 5 && vf > gt[this.gear] * 0.97) { this.gear++; this.shift = 0.2; }
+      else if (this.gear > 0 && vf < gt[this.gear - 1] * 0.62) this.gear--;
+      const g = this.gear, lo = g ? gt[g - 1] * 0.6 : 0, r = clamp((vf - lo) / (gt[g] - lo), 0, 1);
+      this.rpm += (0.25 + 0.75 * clamp(vf / gt[g], 0, 1.04) - this.rpm) * Math.min(1, dt * 12);
+      const drive = acc * 0.4 * Math.pow(GEAR_TOP[0] / GEAR_TOP[g], 0.62) * (0.72 + 0.55 * r - 0.45 * r * r);
+      if (this.throttle > 0 && this.shift <= 0 && vf >= 0) vf += drive * this.throttle * dt;
+      else if (this.throttle > 0 && vf < 0) vf += acc * 0.8 * dt;
+      if (this.brake) { if (vf > 30) vf -= (240 + 0.4 * vf) * dt; else if (vf > -vmax * 0.3) vf -= acc * 0.3 * dt; }
+      if (!this.throttle && !this.brake) vf -= vf * 0.32 * dt; // frein moteur
       if (vf > vmax) vf -= (vf - vmax) * 2.5 * dt;
-      vf -= vf * 0.15 * dt;
+      vf -= Math.sign(vf) * vf * vf / (vb * vb) * acc * 0.1 * dt; // résistance de l'air
       if (this.drift) grip *= 0.35;
-      const sf = clamp(vf / 140, -1, 1);
-      this.a += this.steer * m.turn * (this.drift ? 1.25 : 1) * sf * (1 - 0.25 * clamp(Math.abs(vf) / 800, 0, 1)) * dt;
+      // direction : à basse vitesse on braque fort, à haute vitesse le virage s'élargit (limite d'adhérence des pneus)
+      const sf = clamp(vf / 110, -1, 1), lat = m.grip * 125 * (this.drift ? 1.3 : 1) * (terrain === "off" ? 0.8 : 1) * (w.th.ice ? 0.6 : 1);
+      this.a += this.steer * (this.drift ? 1.15 : 1) * sf * Math.min(m.turn, lat / Math.max(60, Math.abs(vf))) * dt;
+      vf -= Math.abs(this.steer) * clamp((Math.abs(vf) - 250) / 300, 0, 1) * vf * 0.3 * dt; // les pneus frottent en virage
+      grip *= 1 - 0.3 * clamp(Math.abs(vf) / m.vmax, 0, 1); // léger glissement à haute vitesse
     }
     vr *= Math.exp(-grip * dt);
     this.vx = vf * fx + vr * rx; this.vy = vf * fy + vr * ry;
@@ -660,8 +674,11 @@ class Car {
     this.drifting = Math.abs(vr) > 80 && this.speed > 140;
     this.onRoad = terrain === "road";
     this.x += this.vx * dt; this.y += this.vy * dt;
-    if (w.wall(this, this.rad, 0.35)) {
-      this.vx *= 0.9; this.vy *= 0.9;
+    if (w.wall(this, this.rad, 0.15)) {
+      // contre le mur, la voiture glisse le long et se remet dans l'axe au lieu de rester coincée
+      this.vx *= 0.985; this.vy *= 0.985;
+      const sp = Math.hypot(this.vx, this.vy), da = angDiff(this.a, Math.atan2(this.vy, this.vx));
+      if (sp > 60 && Math.abs(da) < 1.3) this.a += da * 0.12;
       if (this.hitWall > 120) game.sparks(this.x, this.y, this.hitWall, this.pi >= 0 ? this.pi : -1);
     }
     const [sx, sy] = w.S[this.idx], [nx, ny] = w.nor[this.idx];
@@ -727,7 +744,7 @@ class AI {
 const cv = document.getElementById("c"), ctx = cv.getContext("2d");
 let DPR = 1, VW = 0, VH = 0;
 // Qualité adaptative : si le téléphone n'arrive pas à suivre, on baisse la résolution puis les effets
-const quality = { maxDpr: 2, r3: 1.5, low: false, samples: [] };
+const quality = { maxDpr: 2, r3: 2, low: false, samples: [] };
 function adaptQuality(dt) {
   const q = quality; q.samples.push(dt);
   if (q.samples.length < 90) return;
@@ -917,6 +934,7 @@ class Game {
   step(dt) {
     this.t += dt;
     if (this.paused) return;
+    for (const c of this.cars) { c.px = c.x; c.py = c.y; c.pa = c.a; }
     if (this.phase === "count") {
       this.count -= dt;
       const c = Math.ceil(this.count);
@@ -1229,10 +1247,17 @@ class Game {
     if (this.r3) { // compteur de vitesse (en haut quand les pédales occupent le bas de l'écran)
       ctx.save(); if (ctrlMode() !== "joy") ctx.translate(0, -(v.h - 22 * s) + 50 * s + (v.y === 0 && v.x < VW / 2 - 40 && v.x + v.w > VW / 2 + 40 ? 30 : 0));
       ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-      ctx.fillStyle = "rgba(10,8,22,.5)"; rr(ctx, v.w / 2 - 52 * s, v.h - 52 * s, 104 * s, 50 * s, 12); ctx.fill();
-      ctx.font = `800 ${30 * s}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2 + 2, v.h - 22 * s + 2);
-      ctx.fillStyle = car.boost > 0 || car.star > 0 ? "#E8784E" : "#F5F3EF"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2, v.h - 22 * s);
-      ctx.font = `700 ${12 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.fillText("km/h", v.w / 2, v.h - 8 * s);
+      const pw = 150 * s, px0 = v.w / 2 - pw / 2;
+      ctx.fillStyle = "rgba(10,12,16,.55)"; rr(ctx, px0, v.h - 56 * s, pw, 54 * s, 14); ctx.fill();
+      // compte-tours : barre qui se remplit avec le régime, rouge juste avant de passer le rapport
+      const rp = clamp((car.rpm - 0.25) / 0.79, 0, 1), bw = pw - 20 * s;
+      ctx.fillStyle = "rgba(255,255,255,.12)"; rr(ctx, px0 + 10 * s, v.h - 50 * s, bw, 4 * s, 2); ctx.fill();
+      ctx.fillStyle = rp > 0.88 ? "#FF8A73" : rp > 0.65 ? "#E8784E" : "#6FAEE6"; rr(ctx, px0 + 10 * s, v.h - 50 * s, Math.max(2, bw * rp), 4 * s, 2); ctx.fill();
+      ctx.font = `800 ${22 * s}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.fillStyle = "#E8784E"; ctx.fillText(car.speed < 5 && car.throttle <= 0 ? "N" : car.gear < 0 || (car.brake && car.speed < 40 && (car.vx * Math.cos(car.a) + car.vy * Math.sin(car.a)) < 0) ? "R" : String(car.gear + 1), px0 + 22 * s, v.h - 16 * s);
+      ctx.font = `700 ${9 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.fillStyle = "rgba(245,243,239,.6)"; ctx.fillText("RAPPORT", px0 + 22 * s, v.h - 6 * s);
+      ctx.font = `800 ${30 * s}px 'Plus Jakarta Sans', Impact, sans-serif`; ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2 + 16 * s + 2, v.h - 18 * s + 2);
+      ctx.fillStyle = car.boost > 0 || car.star > 0 ? "#E8784E" : "#F5F3EF"; ctx.fillText(Math.round(car.speed * 0.4), v.w / 2 + 16 * s, v.h - 18 * s);
+      ctx.font = `700 ${11 * s}px 'Plus Jakarta Sans', sans-serif`; ctx.fillText("km/h", v.w / 2 + 16 * s, v.h - 5 * s);
       ctx.restore(); ctx.textAlign = "left"; ctx.textBaseline = "top";
     }
     // minicarte de la vue
@@ -1310,7 +1335,7 @@ function canvasTex(w, h, draw, repeat) {
   const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h);
   const t = new THREE.CanvasTexture(c);
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.anisotropy = R3 ? Math.min(8, R3.capabilities.getMaxAnisotropy()) : 1;
+  t.anisotropy = R3 ? Math.min(16, R3.capabilities.getMaxAnisotropy()) : 1;
   return t;
 }
 function noiseFill(c, w, h, base, amp, n) {
@@ -1541,7 +1566,7 @@ class Scene3D {
     sun.position.copy(this.sunDir); sc.add(sun); sc.add(sun.target);
     this.shadows = !night && !low && !quality.noShadow;
     if (this.shadows) {
-      sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0015;
+      sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0015;
       const sc2 = sun.shadow.camera; sc2.left = sc2.bottom = -220; sc2.right = sc2.top = 220; sc2.near = 10; sc2.far = 1400;
     }
     if (!night) { // disque solaire et halo
@@ -1552,7 +1577,7 @@ class Scene3D {
     // ----- sol, bas-côtés, vibreurs, route -----
     const gTex = keep(canvasTex(512, 512, (c, W, H) => noiseFill(c, W, H, th.wall, 0.13, 14000), true)); gTex.repeat.set(70, 70);
     const ground = add(new T.PlaneGeometry(w.w + 24000, w.h + 24000), lam({ map: gTex }), w.w / 2, 0, w.h / 2); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
-    const offTex = keep(canvasTex(256, 256, (c, W, H) => noiseFill(c, W, H, th.off, 0.14, 7000), true));
+    const offTex = keep(canvasTex(512, 512, (c, W, H) => noiseFill(c, W, H, th.off, 0.14, 28000), true));
     const offMat = layer(lam({ map: offTex, side: T.DoubleSide }), 1);
     add(ribbonGeo(w, -(R + GRASS + 4), -(R + KERB), 0.3, 140, 140), offMat).receiveShadow = true;
     add(ribbonGeo(w, R + KERB, R + GRASS + 4, 0.3, 140, 140), offMat).receiveShadow = true;
@@ -1560,12 +1585,15 @@ class Scene3D {
     const kMat = layer(night ? basic({ map: kTex, side: T.DoubleSide }) : lam({ map: kTex, side: T.DoubleSide }), 2);
     add(ribbonGeo(w, -(R + KERB), -R + 1, 0.5, 48, KERB), kMat).receiveShadow = true;
     add(ribbonGeo(w, R - 1, R + KERB, 0.5, 48, KERB), kMat).receiveShadow = true;
-    const rTex = keep(canvasTex(512, 512, (c, W, H) => {
-      noiseFill(c, W, H, th.road, th.ice ? 0.1 : 0.16, 26000);
+    const rTex = keep(canvasTex(1024, 1024, (c, W, H) => {
+      noiseFill(c, W, H, th.road, th.ice ? 0.1 : 0.16, 110000);
+      for (let i = 0; i < 9000; i++) { c.fillStyle = `rgba(255,255,255,${Math.random() * 0.1})`; c.fillRect(Math.random() * W, Math.random() * H, 1, 1); } // gravillons
+      c.globalAlpha = 0.06; for (let i = 0; i < 40; i++) { c.fillStyle = Math.random() < 0.5 ? "#000" : "#fff"; c.beginPath(); c.ellipse(Math.random() * W, Math.random() * H, 30 + Math.random() * 90, 10 + Math.random() * 30, Math.random() * 3, 0, 7); c.fill(); } c.globalAlpha = 1; // réparations
+
       c.fillStyle = "rgba(0,0,0,.12)"; c.fillRect(0, H * 0.27, W, H * 0.08); c.fillRect(0, H * 0.65, W, H * 0.08); // traces de gomme
       if (th.ice) for (let i = 0; i < 60; i++) { c.strokeStyle = "rgba(255,255,255,.35)"; c.lineWidth = 1.5; const y = Math.random() * H, x = Math.random() * W; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 40 + Math.random() * 80, y + (Math.random() - 0.5) * 10); c.stroke(); }
-      c.fillStyle = th.line; c.fillRect(0, 6, W, 7); c.fillRect(0, H - 13, W, 7);   // lignes de bord
-      c.fillRect(0, H / 2 - 4, W * 0.45, 8);                                         // pointillé central
+      c.fillStyle = th.line; c.fillRect(0, 12, W, 14); c.fillRect(0, H - 26, W, 14);   // lignes de bord
+      c.fillRect(0, H / 2 - 8, W * 0.45, 16);                                         // pointillé central
     }, true));
     rTex.wrapT = T.ClampToEdgeWrapping;
     const roadMat = layer(keep(new T.MeshPhongMaterial({ map: rTex, side: T.DoubleSide, shininess: th.ice ? 90 : night ? 60 : 18, specular: th.ice ? 0x9fb4cc : night ? 0x3a3550 : 0x1e1e1e })), 3);
@@ -2011,7 +2039,7 @@ const SND = {
     n.cheer.bp.frequency.setTargetAtTime(1900 + Math.sin(t * 2.1) * 450 + Math.random() * 350, t, 0.08);
     game.humans.forEach((c, i) => {
       const e = n.engines[i]; if (!e) return;
-      const sp = c.speed, gear = Math.min(4, Math.floor(sp / 140)), f = 40 + (sp - gear * 140) * 0.5 + gear * 16;
+      const f = 34 + c.rpm * 120 + Math.max(0, c.gear) * 5;
       e.o1.frequency.setTargetAtTime(f, t, 0.05); e.o2.frequency.setTargetAtTime(f * 0.5 + i * 3, t, 0.05);
       e.lp.frequency.setTargetAtTime(350 + c.throttle * 900, t, 0.1);
       e.g.gain.setTargetAtTime(mute || c.finished ? 0 : (0.014 + c.throttle * 0.02) / Math.sqrt(game.humans.length), t, 0.08);
@@ -2161,10 +2189,10 @@ function readInput(car, g) {
       // en 3D, le joystick est relatif à la caméra : vers le haut = tout droit
       const ang = Math.atan2(st.dy, st.dx) + (g.r3 ? g.r3.camYaw(car.pi) + Math.PI / 2 : 0);
       const d = angDiff(car.a, ang);
-      car.steer = clamp(d * 2.6, -1, 1);
+      car.steer += clamp(clamp(d * 2.2, -1, 1) - car.steer, -0.16, 0.16); // braquage progressif, sans à-coups
       car.throttle = Math.min(1, mag * 1.15); car.brake = false;
       car.drift = Math.abs(d) > 1.1 && car.speed > 230;
-    } else { car.steer = 0; car.throttle = 0; car.brake = true; }
+    } else { car.steer *= 0.7; car.throttle = 0; car.brake = car.speed > 40; }
     return;
   }
   const km = keyMap(car.pi, g.humans.length);
@@ -2277,7 +2305,11 @@ function frame(now) {
     let n = 0;
     while (acc >= 1 / 60 && n < 5) { game.step(1 / 60); acc -= 1 / 60; n++; }
     if (n === 5) acc = 0;
+    // image intermédiaire : on affiche les voitures entre deux pas de calcul (fluide sur écrans 90 et 120 Hz)
+    const al = game.paused ? 1 : clamp(acc * 60, 0, 1), saved = [];
+    for (const c of game.cars) if (c.px !== undefined) { saved.push([c, c.x, c.y, c.a]); c.x = c.px + (c.x - c.px) * al; c.y = c.py + (c.y - c.py) * al; c.a = c.pa + angDiff(c.pa, c.a) * al; }
     game.draw();
+    for (const [c, x, y, a] of saved) { c.x = x; c.y = y; c.a = a; }
     SND.update(game);
     if (game.phase === "race" && !game.paused) adaptQuality(dt);
   }
