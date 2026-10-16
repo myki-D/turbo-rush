@@ -24,6 +24,9 @@ body {
   -webkit-touch-callout: none; overscroll-behavior: none;
 }
 canvas#c, canvas#c3 { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+/* paysage forcé : si le téléphone est tenu en portrait pendant la course, toute la scène est tournée d'un quart de tour */
+#stage { position: fixed; inset: 0; }
+#stage.rot { inset: auto; top: 0; left: 0; transform-origin: 0 0; }
 canvas#c3[hidden] { display: none; }
 .screen {
   position: fixed; inset: 0; overflow-y: auto; touch-action: pan-y;
@@ -93,6 +96,7 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
 </style>
 </head><body>
 
+<div id="stage">
 <canvas id="c3" hidden aria-hidden="true"></canvas>
 <canvas id="c" aria-label="Piste de course"></canvas>
 <button id="pauseBtn" hidden aria-label="Pause">II</button>
@@ -171,6 +175,7 @@ details p { margin: 6px 0; color: var(--muted); font-size: .88rem; line-height: 
   </div>
 </div>
 
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 "use strict";
@@ -693,14 +698,24 @@ function adaptQuality(dt) {
     else q.low = true;
   }
 }
+// En course sur téléphone ou tablette, l'écran est toujours en paysage : si l'appareil est tenu en portrait
+// (ou si la rotation est bloquée), on tourne toute la scène d'un quart de tour.
+let ROT = false;
+const stageEl = document.getElementById("stage");
 function resize() {
   DPR = Math.min(quality.maxDpr, window.devicePixelRatio || 1);
-  VW = window.innerWidth; VH = window.innerHeight;
+  const W = window.innerWidth, H = window.innerHeight;
+  ROT = !!game && (touchMode || matchMedia("(pointer: coarse)").matches) && H > W;
+  stageEl.classList.toggle("rot", ROT);
+  if (ROT) { stageEl.style.width = H + "px"; stageEl.style.height = W + "px"; stageEl.style.transform = `translateX(${W}px) rotate(90deg)`; }
+  else { stageEl.style.width = stageEl.style.height = stageEl.style.transform = ""; }
+  VW = ROT ? H : W; VH = ROT ? W : H;
   cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR);
   if (R3) { R3.setPixelRatio(Math.min(quality.r3, window.devicePixelRatio || 1)); R3.setSize(VW, VH, false); }
   if (game) game.layout();
 }
 window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 120));
 
 const cfg = { humans: 2, bots: 1, laps: 3, track: 0, cars: [1, 5, 4, 8], ctrl: "joy" };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem("turbo-rush-cfg") || "{}")); } catch (e) {}
@@ -1996,42 +2011,45 @@ function padSync(pi) {
   const pd = pads[pi]; pd.L = pd.R = pd.gas = pd.brake = false; pd.grab = null;
   for (const [, q] of padPtr) if (q.pi === pi) { if (q.role === "wheel") pd.grab = q; else pd[q.role] = true; }
 }
+function lp(e) { return ROT ? [e.clientY, window.innerWidth - e.clientX] : [e.clientX, e.clientY]; } // doigt -> coordonnées de la scène
 function viewAt(x, y) { if (!game) return -1; return game.views.findIndex(v => x >= v.x && x < v.x + v.w && y >= v.y && y < v.y + v.h); }
 cv.addEventListener("pointerdown", e => {
+  const [X, Y] = lp(e);
   if (!game || game.phase === "done") return;
   if (e.pointerType !== "mouse") touchMode = true;
-  const pi = viewAt(e.clientX, e.clientY); if (pi < 0) return;
+  const pi = viewAt(X, Y); if (pi < 0) return;
   const v = game.views[pi], b = itemBtn(v);
   e.preventDefault();
-  if (Math.hypot(e.clientX - b.x, e.clientY - b.y) < b.r + 14) { game.useItem(game.humans[pi]); return; }
+  if (Math.hypot(X - b.x, Y - b.y) < b.r + 14) { game.useItem(game.humans[pi]); return; }
   if (game.humans.length === 1) {
     const nb = nitroBtn(v);
-    if (Math.hypot(e.clientX - nb.x, e.clientY - nb.y) < nb.r + 10) { nitroTouch.set(pi, e.pointerId); nitroPtr.set(e.pointerId, pi); return; }
+    if (Math.hypot(X - nb.x, Y - nb.y) < nb.r + 10) { nitroTouch.set(pi, e.pointerId); nitroPtr.set(e.pointerId, pi); return; }
     const mm = game.miniRect && game.miniRect[pi];
-    if (mm && e.clientX > mm.x && e.clientX < mm.x + mm.w && e.clientY > mm.y && e.clientY < mm.y + mm.h) { game.nextCam(pi); return; }
+    if (mm && X > mm.x && X < mm.x + mm.w && Y > mm.y && Y < mm.y + mm.h) { game.nextCam(pi); return; }
   }
   if (ctrlMode() !== "joy") {
-    const role = padRole(v, e.clientX, e.clientY); if (!role) return;
+    const role = padRole(v, X, Y); if (!role) return;
     try { cv.setPointerCapture(e.pointerId); } catch (_) {}
     const P = padLayout(v);
-    padPtr.set(e.pointerId, { pi, role, a0: Math.atan2(e.clientY - P.wheel.y, e.clientX - P.wheel.x), w0: pads[pi].wheel });
+    padPtr.set(e.pointerId, { pi, role, a0: Math.atan2(Y - P.wheel.y, X - P.wheel.x), w0: pads[pi].wheel });
     padSync(pi); return;
   }
   if (sticks[pi]) return;
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-  sticks[pi] = { id: e.pointerId, ox: e.clientX, oy: e.clientY, dx: 0, dy: 0 };
+  sticks[pi] = { id: e.pointerId, ox: X, oy: Y, dx: 0, dy: 0 };
   pointers.set(e.pointerId, pi);
 });
 cv.addEventListener("pointermove", e => {
+  const [X, Y] = lp(e);
   const q = padPtr.get(e.pointerId);
   if (q && game) {
     const v = game.views[q.pi]; if (!v) return;
-    if (q.role === "wheel") { const P = padLayout(v); pads[q.pi].wheel = clamp(q.w0 + angDiff(q.a0, Math.atan2(e.clientY - P.wheel.y, e.clientX - P.wheel.x)), -2.2, 2.2); }
-    else { const role = padRole(v, e.clientX, e.clientY); if (role && role !== "wheel" && role !== q.role) { q.role = role; padSync(q.pi); } } // glisser d'une touche à l'autre
+    if (q.role === "wheel") { const P = padLayout(v); pads[q.pi].wheel = clamp(q.w0 + angDiff(q.a0, Math.atan2(Y - P.wheel.y, X - P.wheel.x)), -2.2, 2.2); }
+    else { const role = padRole(v, X, Y); if (role && role !== "wheel" && role !== q.role) { q.role = role; padSync(q.pi); } } // glisser d'une touche à l'autre
     return;
   }
   const pi = pointers.get(e.pointerId); if (pi === undefined || !sticks[pi]) return;
-  const st = sticks[pi]; let dx = (e.clientX - st.ox) / STICK_R, dy = (e.clientY - st.oy) / STICK_R;
+  const st = sticks[pi]; let dx = (X - st.ox) / STICK_R, dy = (Y - st.oy) / STICK_R;
   const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
   st.dx = dx; st.dy = dy;
 });
@@ -2179,10 +2197,11 @@ function startRace() {
   SND.stop();
   game = new Game({ humans: cfg.humans, bots: cfg.bots, laps: cfg.laps, track: cfg.track, cars: cfg.cars.slice() });
   cv3.hidden = !game.r3;
+  resize();
   SND.start(game.humans.length);
   $("menu").hidden = true; $("results").hidden = true; $("pause").hidden = true; $("pauseBtn").hidden = false;
 }
-function toMenu() { SND.stop(); if (game && game.r3) game.r3.dispose(); cv3.hidden = true; game = null; $("results").hidden = true; $("pauseBtn").hidden = true; $("menu").hidden = false; renderMenu(); }
+function toMenu() { SND.stop(); if (game && game.r3) game.r3.dispose(); cv3.hidden = true; game = null; resize(); $("results").hidden = true; $("pauseBtn").hidden = true; $("menu").hidden = false; renderMenu(); }
 function togglePause(on) { if (!game) return; game.paused = on; if (game) SND.update(game); $("pause").hidden = !on; }
 function showResults() {
   const order = game.order();
